@@ -1,5 +1,6 @@
 
 #include "hex.h"
+#include "hex_machine_engine.h"
 
 int main() {
   
@@ -31,9 +32,12 @@ int main() {
   
   if(!nb_human_player_str.empty())
     nb_human_player = atoi(nb_human_player_str.c_str());
+
+  // Selection of the machine engine
+  HexMachineMcIA machine(board_size);
   
   // Start the game
-  Hex hex(board_size, nb_human_player);
+  Hex hex(board_size, nb_human_player, &machine);
 
 #endif //_TEST_HEX
 }

@@ -18,6 +18,7 @@
 #include "graph.h"
 #include "dfs.h"
 #include "shortestpath.h"
+#include "hex_machine_engine.h"
 
 // Maximun number of palyers
 const unsigned int max_players{2};
@@ -69,13 +70,14 @@ struct Hex {
   // so the graph will have (size + 2)^2 nodes.
   // By default the board is of size 11 by 11 and 2 human players play
   // against each other.
-  Hex(unsigned int size=11, unsigned int nb_players=max_players):
+  
+  Hex(unsigned int size=11, unsigned int nb_players=max_players,
+      HexMachineEngine* engine_ptr=nullptr):
     board_size{size}, nb_human_players{nb_players},
     nb_machine_players{max_players - nb_human_players},
     graph_size{(size+2)*(size+2)},
     graph{graph_size, EdgeColor::Any},
-    gen(rd()),
-    uniform_distribution(std::uniform_int_distribution<int>(0, board_size-1)) {
+    machine_engine(engine_ptr) {
       
       if (size < 3)
 	throw std::runtime_error{"The board's size should be at least 3"};
@@ -88,6 +90,9 @@ struct Hex {
 	machine_players.push_back(blue_player);
 	machine_players.push_back(red_player);
       }
+
+      if((nb_machine_players != 0) && (machine_engine == nullptr))
+	throw std::runtime_error{"You must provide an egine for the machine to play"};
 
       // Initialize the nodes
       init_nodes();
@@ -197,16 +202,6 @@ private:
 
   // number of selected cells
   unsigned int nb_selected_cells{0};
-
-  // obtain a random number from hardware
-  std::random_device rd;
-  
-  // generator
-  std::mt19937 gen;
- 
-  // Uniform distibution over the range [0, board_size - 1]
-  // Note: std::uniform_int_distribution<> is inclusive
-  std::uniform_int_distribution<int> uniform_distribution;
   
   enum class EdgeColor {
     Blue,
@@ -231,6 +226,10 @@ private:
   // With 'O' the ouside nodes and I the nodes on the board.
   std::vector<Node> nodes;
 
+  friend HexMachineEngine;
+
+  HexMachineEngine* machine_engine;
+  
   // Select a position on the board.
   // Returns 'true' if a valid position was selected (false otherwise)
   bool select(unsigned int board_row,
@@ -276,7 +275,8 @@ private:
     return true;
 
   Error:
-    
+
+    // Error messages are only for human players
     if(player_type == PlayerType::Human)
       std::cerr << err.str() << std::endl;
 
@@ -453,18 +453,10 @@ private:
     
     // Loop until the machine selects a valid position on the board
     while(!position_is_selected) {
-      machine_engine(row, col);
+      machine_engine->get_position(row, col);
       if (select(row, col, machine_player_id, PlayerType::Machine))
 	break;
     }
-  }
-
-  // Engine for the machine to select a row and a column on the board
-  void machine_engine(unsigned int& row, unsigned int& col) {
-    // Stupid machine:
-    // generate random numbers for the row and the column
-    row = uniform_distribution(gen); 
-    col = uniform_distribution(gen); 
   }
 
   // Start the game
