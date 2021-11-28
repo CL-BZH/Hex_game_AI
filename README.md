@@ -1,7 +1,7 @@
 # Hex_game_AI
 This depository contains some code I wrote for the course [C++ For C Programmers, Part B](https://www.coursera.org/learn/c-plus-plus-b) delivered by the University of California Santa Cruz on Coursera.
 
-The purpose is to implement the [Hex game](https://en.wikipedia.org/wiki/Hex_(board_game)) where two human can play against each other or a human plays against the machine or the machine plays against itself.
+The purpose is to implement the [Hex game](https://en.wikipedia.org/wiki/Hex_(board_game)) where two human players can play against each other or a human plays against the machine or the machine plays against itself.
 
 For the machine to play, I implemented 3 methods in what I call machine engines.  
 The engines are named:
@@ -24,7 +24,7 @@ make
 ```
 ### Options
 In the Makefile:  
-If you wish to use ncurses instead as the default terminal uncomment the lines  
+If you wish to use ncurses instead of the default terminal uncomment the lines  
 ```bash
 #CPPFLAGS += -D_NCURSES  
 and   
@@ -123,7 +123,7 @@ Some of the main methods are:
 > Explanation on why I use a shortest path algorithm to find a winner will be given below.  
 
 The `HexMachineEngine` class is the interface for machine engines.  
-All machine engines inherited from `HexMachineEngine` and they define the algorithms that the **machine player** (i.e. the computer)  uses to play the game. So far there are three engines:
+All machine engines inherit from `HexMachineEngine` and they define the algorithms that the **machine player** (i.e. the computer)  uses to play the game. So far there are three engines:
 - `HexMachineDummy`
 - `HexMachineBF`
 - `HexMachineMcIA`
@@ -172,7 +172,7 @@ First `get_position()` is called to get a best candidate for the board's cell to
 So, in `get_position()` a list of all available cells is created.  
 Then for each of these available positions do:  
 > * select that position
-> * if this position creates a winning path *(i.e. a path from **West** to **East** if the machine player is **Blue** and a path from **North** to **South** if the machine player is **Red**)* then return that position as the best cell to select.
+> * if this position creates a winning path *(i.e. a path from **West** to **East** if the machine player is **Blue** or a path from **North** to **South** if the machine player is **Red**)* then return that position as the best cell to select.
 > * else, spawn threads to obtain a quality score *(explained below)* for that position.
 > * release the position
 > * compute the estimated probability of winning if that position is selected for next move.
@@ -195,7 +195,7 @@ Then, the estimate probability of winning for a position is given by the ratio:
 > **Note**:  
 There is an option to switch to **brute-force** once the number of free positions is below a certain limit.  
 The flag to set in the Makefile is `_BF_SUP`.  
-`CPPFLAGS += -D_BF_SUP=20` means that the brute-force algorithm will be run once the number of avilable cells on the board are less than 20.
+`CPPFLAGS += -D_BF_SUP=20` means that the brute-force algorithm will be run once the number of available cells on the board is less than 20.
 
 > A bit of explanation on how is decided the number of runs for the Monte-Carlo simulation.  
 This is computed in `get_number_runs()` *(hex_machine_engine.h)*.
@@ -204,7 +204,7 @@ The function is reproduced in the `Python` script `bell_curve.py` that is in the
 Below is the curve that represent the number of runs for a 9x9 board with `max_runs_factor = 25`.
 ![runs](./Images/number_of_runs.png)  
 So, the minimum number of runs is set to 100 *(normally the game finishes before the number of available cells is less than 50)*.
-The computation load (i.e. the number of runs per position) is maximum when there are already some cells selected and we want a maximum of 'reliability' on the cell selection.
+The computation load (i.e. the number of runs per position) is maximum when there are already some cells selected and we want a maximum of 'reliability' on the cell selection process.
 
 ----
 ## To Do
