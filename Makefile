@@ -9,27 +9,31 @@
 CXX = g++
 
 # define any compile-time flags
-CXXFLAGS = -Wall -pthread -g -Wno-reorder
+CXXFLAGS = -Wall -pthread -g -Wno-reorder -std=c++11
 
 # For printing the connections between nodes (when _PRINT_MATRIX is not defined)
 #CPPFLAGS += -D_SHOW_EDGES
 
 # For printing the connectivity matrix (if Eigen is installed)
 # this will automatically define _SHOW_EDGES
-CPPFLAGS += -D_PRINT_MATRIX
+#CPPFLAGS += -D_PRINT_MATRIX
 
 # For using the ncurses
-#CPPFLAGS += -D_NCURSES
+CPPFLAGS += -D_NCURSES
 
 # Flag to enable/disable part of the code in main.cpp
 CPPFLAGS += -D_TEST_HEX
+
+# Value for starting brute force algorithm in the Monte-Carlo engine
+#CPPFLAGS += -D_BF_SUP=20
+
 
 INCLUDES =
 
 # If you installed Eigen and want to use it for showing the connectivity matrix
 # add the line below where "path_to_eigen" is where to find Eigen
 #INCLUDES += -I/path_to_eigen/
-INCLUDES += -I../../eigen/
+#INCLUDES += -I../../eigen/
 
 # define library paths in addition to /usr/lib
 LFLAGS =
@@ -41,7 +45,7 @@ LIBS =
 # Make sure you installed it before
 # e.g. on Ubuntu: sudo apt-get install libncurses5-dev libncursesw5-dev
 # on Fedora: sudo dnf install ncurses-devel ncurses
-#LIBS += -lncurses
+LIBS += -lncurses
 
 # define the C++ source files
 SRCS = main.cpp

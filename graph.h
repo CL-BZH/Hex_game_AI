@@ -527,6 +527,11 @@ struct ColoredGraph: Graph {
     return edges_colors;
   }
 
+  // Make a copy of an edges_colors object
+  void set_edges_colors(const std::vector<Color_t>& edges_colors) {
+    this->edges_colors = edges_colors;
+  }
+  
   // Get all neighbors with an edge of a given color
   void get_neighbors(const Node& n1,
 		     std::vector<std::pair<Node,double>>& neighbors,

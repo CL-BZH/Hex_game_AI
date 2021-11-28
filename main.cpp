@@ -1,4 +1,6 @@
 
+#include <thread>
+
 #include "hex.h"
 #include "hex_machine_engine.h"
 
@@ -33,11 +35,41 @@ int main() {
   if(!nb_human_player_str.empty())
     nb_human_player = atoi(nb_human_player_str.c_str());
 
-  // Selection of the machine engine
-  HexMachineMcIA machine(board_size);
+  // Get a board
+  HexBoard board(board_size);
   
   // Start the game
-  Hex hex(board_size, nb_human_player, &machine);
+  
+  if(nb_human_player == 2) {
+    // Human against Human
+    Hex hex(&board, nb_human_player);
+  } else {
+    unsigned int threads{std::thread::hardware_concurrency()};
+    
+    std::cout << "The number of threads will be set to " << threads << std::endl
+	      << "(press enter if you don't want to change it." << std::endl
+	      << "Else enter the number of threads you want)" << std::endl;
+    
+    std::string threads_str;
+    getline(std::cin, threads_str);
+    
+    // Set the number of threads if it was given
+    if(!threads_str.empty())
+      threads = atoi(threads_str.c_str());
+    
+    if(nb_human_player == 1) {
+      // Machine against Human
+      HexMachineMcIA machine(board_size, threads);
+      Hex hex(&board, nb_human_player, &machine);
+    } else {
+      // Machine against itself
+      //HexMachineDummy blue_machine(board_size);
+      //HexMachineDummy red_machine(board_size);
+      HexMachineMcIA blue_machine(board_size, threads);
+      HexMachineMcIA red_machine(board_size, threads);
+      Hex hex(&board, nb_human_player, &blue_machine, &red_machine);
+    }
+  }
 
 #endif //_TEST_HEX
 }
