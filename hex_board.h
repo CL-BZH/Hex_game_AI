@@ -265,9 +265,10 @@ struct HexBoard {
     Path path;
     if(has_won(player_id, &path)) {
 
-      if (!path_exist) {
-	throw std::runtime_error{"Winning game but path_exist == false!";    
-      }
+      if (!path_exist)
+	std::cout << "Game won by player with ID " << player_id
+	       << " but path_exist == false" << std::endl;
+
       // End the game
       game_end = true;
       
@@ -287,7 +288,6 @@ struct HexBoard {
 	draw_board(&path.route);
       }
     }
-
     // Position selected = true
     return true;
   }

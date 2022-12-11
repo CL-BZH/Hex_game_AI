@@ -19,7 +19,7 @@ CXXFLAGS = -Wall -pthread -g -Wno-reorder -std=c++11
 #CPPFLAGS += -D_PRINT_MATRIX
 
 # For using the ncurses
-CPPFLAGS += -D_NCURSES
+#CPPFLAGS += -D_NCURSES
 
 # Flag to enable/disable part of the code in main.cpp
 CPPFLAGS += -D_TEST_HEX

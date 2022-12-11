@@ -10,11 +10,11 @@
 #include "graph.h"
 #include "hex_board.h"
 
-using std::chrono::time_point;
-using std::chrono::duration_cast;
-using std::chrono::microseconds;
-using std::chrono::seconds;
-using chrono = std::chrono::high_resolution_clock;
+//using std::chrono::time_point;
+//using std::chrono::duration_cast;
+//using std::chrono::microseconds;
+//using std::chrono::seconds;
+//using chrono = std::chrono::high_resolution_clock;
 
 enum class MachineType {
   Dummy,
@@ -105,9 +105,10 @@ struct HexMachineEngine {
   }
   
   // Helper function for printing a duration
-  void print_duration(time_point<chrono> start, time_point<chrono> stop) {
-    auto duration{duration_cast<microseconds>(stop - start)};
-    auto sec{duration_cast<seconds>(duration)};
+  void print_duration(std::chrono::time_point<std::chrono::high_resolution_clock> start,
+		      std::chrono::time_point<std::chrono::high_resolution_clock> stop) {
+    auto duration{std::chrono::duration_cast<std::chrono::microseconds>(stop - start)};
+    auto sec{std::chrono::duration_cast<std::chrono::seconds>(duration)};
     auto us{duration - std::chrono::duration_cast<std::chrono::microseconds>(sec)};
     std::cout << "Duration : " << sec.count() << " s " << us.count()
 	      << " us" << std::endl;
@@ -192,7 +193,7 @@ struct HexMachineBF: HexMachineEngine {
     bf_task_call_count = 0;
     
     // Start chrono
-    auto start{chrono::now()};
+    auto start{std::chrono::high_resolution_clock::now()};
     
     // Make a copy of the current board (should do it on the heap...)
     HexBoard board_copy{board};
@@ -241,7 +242,7 @@ struct HexMachineBF: HexMachineEngine {
     board_column = best_position.board_column;
     
     // Stop the chrono
-    auto stop{chrono::now()};
+    auto stop{std::chrono::high_resolution_clock::now()};
     // Print the time taken in number of seconds + microseconds
     print_duration(start, stop);
     
@@ -588,7 +589,7 @@ struct HexMachineMcIA: HexMachineEngine {
     unsigned int current_board_row{0};
 
     // Start chrono
-    auto start{chrono::now()};
+    auto start{std::chrono::high_resolution_clock::now()};
     
     while(current_board_row < board_size) {
       
@@ -677,7 +678,7 @@ struct HexMachineMcIA: HexMachineEngine {
     }
 
     // Stop the chrono
-    auto stop{chrono::now()};
+    auto stop{std::chrono::high_resolution_clock::now()};
     
     // Print the time taken in number of seconds + microseconds
     print_duration(start, stop);
