@@ -632,7 +632,7 @@ private:
 
   enum class Set {
     SET1 = 0,
-    SET2 = 11,
+    SET2 = std::numeric_limits<int>::max(),
   };
 
   //Ncurses nc;
