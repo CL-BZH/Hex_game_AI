@@ -211,7 +211,6 @@ struct HexBoard {
     }
     //draw_board();
   }
-
   
   // Select a position on the board.
   // Returns 'true' if a valid position was selected (false otherwise)
@@ -260,11 +259,15 @@ struct HexBoard {
     ++nb_selected_cells;
 
     // Check if it is possible to color some edges
-    color_edges(node_id, player_id);
+    bool path_exist = color_edges(node_id, player_id);
     
     // Check if there is a winner or no more possibility
     Path path;
     if(has_won(player_id, &path)) {
+
+      if (!path_exist) {
+	throw std::runtime_error{"Winning game but path_exist == false!";    
+      }
       // End the game
       game_end = true;
       
@@ -627,6 +630,11 @@ private:
     Any,
   };
 
+  enum class Set {
+    SET1 = 0,
+    SET2 = 11,
+  };
+
   //Ncurses nc;
   
   // The graph that represent the game
@@ -657,12 +665,23 @@ private:
        for(unsigned int column{0}; column < board_size+2; ++column) {
 	 unsigned int node_id{row*(board_size+2) + column};
 	 nodes[node_id].id = node_id;
-	 // Mark the nodes for the cells surrounding the board as outside
-	 if((row == 0) || (row == board_size+1) ||
-	    (column == 0) || (column == board_size+1))
+	 // Mark the nodes for the cells surrounding the board as outside.
+	 // Also, all valid nodes are included in their own set and
+	 // surrounding nodes are included either in SET1 or SET2 (this is
+	 // for Union-Find algorithm)
+	 if((row == 0) || (column == 0)) {
 	   nodes[node_id].value = static_cast<double>(NodeValue::OUTSIDE);
-	 else
+	   nodes[node_id].set_id = static_cast<unsigned int>(Set::SET1);
+	 }
+	 else if ((row == board_size+1) || (column == board_size+1)) {
+	   nodes[node_id].value = static_cast<double>(NodeValue::OUTSIDE);
+	   nodes[node_id].set_id = static_cast<unsigned int>(Set::SET2);
+	 }
+	 else {
 	   nodes[node_id].value = static_cast<double>(NodeValue::AVAILABLE);
+	   // The node belongs to its own set
+	   nodes[node_id].set_id = node_id;
+	 }
        }
     }
   }
@@ -749,6 +768,54 @@ private:
     nodes[node_id].value = static_cast<double>(value);
   }
 
+  unsigned int find_rep(unsigned int node_id) {
+    unsigned int node_rep = nodes[node_id].set_id;
+
+    if (node_rep == node_id)
+      // The node belongs to its own set
+      return node_rep;
+
+    return find_rep(node_rep);
+  }
+  
+  // Join 2 nodes in the same set if possible.
+  // Return 'true' is there is a path from one side to the other.
+  // Else return false
+  bool join(unsigned int node_id, unsigned int neighbor_id) {
+    unsigned int node_set = nodes[node_id].set_id;
+    unsigned int neighbor_set = nodes[neighbor_id].set_id;
+
+    if (((node_set == static_cast<unsigned int>(Set::SET1)) &&
+	(neighbor_set != static_cast<unsigned int>(Set::SET2))) ||
+	((node_set == static_cast<unsigned int>(Set::SET2)) &&
+	 (neighbor_set != static_cast<unsigned int>(Set::SET1)))) {
+      nodes[neighbor_id].set_id = nodes[node_id].set_id;
+      return false;
+    }
+    
+    if (((neighbor_set == static_cast<unsigned int>(Set::SET1)) &&
+	(node_set != static_cast<unsigned int>(Set::SET2))) ||
+	((neighbor_set == static_cast<unsigned int>(Set::SET2)) &&
+	 (node_set != static_cast<unsigned int>(Set::SET1)))) {
+      nodes[node_id].set_id = nodes[neighbor_id].set_id;
+      return false;
+    }
+    
+    if (((node_set == static_cast<unsigned int>(Set::SET1)) &&
+	 (neighbor_set == static_cast<unsigned int>(Set::SET2))) ||
+	((node_set == static_cast<unsigned int>(Set::SET2)) &&
+	 (neighbor_set == static_cast<unsigned int>(Set::SET1))))
+      return true;
+
+    // Find the node that represent the set to which the node belongs
+    unsigned int node_rep = find_rep(node_id);
+    // Find the node that represent the set to which the neighbor belongs
+    //unsigned int neighbor_rep = find_rep(neighbor_id);
+
+    nodes[neighbor_id].set_id = node_rep;
+    return false;
+     
+  }
   
   /*
    * Each time a position is selected on the board an/some edge(s)
@@ -763,13 +830,18 @@ private:
    *
    *  => Edge between node (1, 0) and node (1, 1) and edge between node (1, 1)
    *  and node (0, 2) are given the color Blue.
+   *
+   * Also, the set to which a node belongs to is updated.
+   * If a path exist from on side to the other then 'true' is returned, else
+   * false is returned.
    */
-  void color_edges(unsigned int node_id,
+  bool color_edges(unsigned int node_id,
 		   unsigned int player_id) {
     //std::cout << "node id " << node_id << std::endl;
     std::vector<std::pair<unsigned int, double>> neighbors;
     EdgeColor color{EdgeColor::Any};
     graph.get_neighbors(node_id, neighbors, &color);
+    bool path = false;
     for(auto neighbor: neighbors) {
       unsigned int neighbor_id{neighbor.first};
       if(nodes[neighbor_id].value == static_cast<double>(player_id)) {
@@ -777,8 +849,11 @@ private:
 	// Color the edge
 	EdgeColor color{static_cast<EdgeColor>(player_id)};
 	graph.set_edge_color(nodes[node_id], nodes[neighbor_id], color);
+	// Update the set to which the node belongs to.
+	path |= join(nodes[node_id].set_id, nodes[neighbor_id].set_id);
       }
     }
+    return path;
   }
 
   void uncolor_edges(unsigned int node_id) {

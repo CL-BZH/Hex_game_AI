@@ -49,6 +49,10 @@ struct Node {
   // Value given to a node by an algorithm running on the graph
   double value{INFINITE_VALUE};
 
+  // Identify the set to whith a node belongs to.
+  // This can be used for a Union-Find algorithm.
+  unsigned int set_id;
+
   // Define the "is greater" operator such that the node can be stored in
   // a priority queue ordered according to the node's value given by the
   // algorithm running on the graph.
