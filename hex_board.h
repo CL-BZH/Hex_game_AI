@@ -81,6 +81,15 @@ struct HexBoard {
       // Build the graph that represent the Hex game (i.e. add edges)
       build_graph();
 
+      /*
+       * Use Unio-Find algo to detect if a path exist from one side to
+       * the other (i.e. from West to East for the Blue player and from
+       * North to South for the Red player).
+       * 2 virtuals node are added, one for each side. That is, for Blue player,
+       * (respectively the Red player) node at index 0 represent the West border
+       * (respectively the North border) and node at index size^2 + 1 represents
+       * the East border (repectively the South border).
+       */
       players_uf[0] = UnionFind(size*size+2);
       players_uf[1] = UnionFind(size*size+2);
       
