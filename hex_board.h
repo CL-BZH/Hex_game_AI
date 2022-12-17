@@ -543,8 +543,11 @@ struct HexBoard {
 	  path.n2 = east_node;
 	  dsp.get_shortest_path(path, &color);
 
-	  if(path.is_valid())
+	  if(path.is_valid()) {
 	    all_path.push(path);
+	    if (quality == nullptr)
+	      break;
+	  }
 
 	}
       }
@@ -588,8 +591,12 @@ struct HexBoard {
 	  path.n2 = south_node;
 	  dsp.get_shortest_path(path, &color);
 
-	  if(path.is_valid())
+	  if(path.is_valid()) {
 	    all_path.push(path);
+	    if (quality == nullptr)
+	      break;
+	  }
+	  
 	}
       }
     }
