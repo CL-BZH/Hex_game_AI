@@ -9,7 +9,8 @@
 CXX = g++
 
 # define any compile-time flags
-CXXFLAGS = -Wall -pthread -g -Wno-reorder -std=c++11
+CXXFLAGS = -Wall -pthread -Wno-reorder -std=c++11
+#CXXFLAGS = -Wall -pthread -Wno-reorder -std=c++11 -g
 
 # For printing the connections between nodes (when _PRINT_MATRIX is not defined)
 #CPPFLAGS += -D_SHOW_EDGES
