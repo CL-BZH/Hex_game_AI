@@ -8,7 +8,7 @@ struct Subset {
 
 struct UnionFind {
 
-  UnionFind(unsigned int nodes = 0) {
+  explicit UnionFind(unsigned int nodes = 0) {
     /* Each node defines its own subset */
     for(unsigned int i = 0; i < nodes; ++i)
       subsets.push_back(Subset{i, 0});
@@ -25,7 +25,7 @@ struct UnionFind {
    * Path compression is done at the same time. 
    */
   unsigned int find(unsigned int node) {
-    unsigned int parent = subsets[node].parent;
+    unsigned int parent{subsets[node].parent};
     if (parent != node)
         subsets[node].parent = find(parent);
     return subsets[node].parent;
@@ -33,19 +33,19 @@ struct UnionFind {
 
   /* Merge subset (i.e. Union operation) */
   void merge(unsigned int node1, unsigned int node2) {
-    unsigned int root1 = find(node1);
-    unsigned int root2 = find(node2);
+    unsigned int root1{find(node1)};
+    unsigned int root2{find(node2)};
 
     if(root1 == root2)
       return;
     
     /* Attach smaller rank tree under root of high rank tree */
     if (subsets[root1].rank < subsets[root2].rank) {
-        subsets[root1].parent = root2;
-	subsets[root2].rank += subsets[root1].rank;
+      subsets[root1].parent = root2;
     } else {
-	subsets[root2].parent = root1;
-	subsets[root1].rank += subsets[root2].rank;
+      subsets[root2].parent = root1;
+      if (subsets[root1].rank == subsets[root2].rank)
+	subsets[root1].rank += 1;
     }
   }
 
