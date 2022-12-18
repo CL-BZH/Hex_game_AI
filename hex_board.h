@@ -82,7 +82,7 @@ struct HexBoard {
       build_graph();
 
       /*
-       * Use Unio-Find algo to detect if a path exist from one side to
+       * Use Union-Find algo to detect if a path exist from one side to
        * the other (i.e. from West to East for the Blue player and from
        * North to South for the Red player).
        * 2 virtuals node are added, one for each side. That is, for Blue player,
@@ -280,30 +280,26 @@ struct HexBoard {
       // Check if it is possible to color some edges
       color_edges(node_id, player_id);
 
-      if (nb_selected_cells >= 2 * board_size) {
+      if (nb_selected_cells >= (2 * board_size - 1)) {
 	// Check if there is a winner or no more possibility
-	Path path;
-	if(has_won(player_id, &path)) {
-	  
-	  unsigned int max_idx = board_size * board_size + 1;
-	  unsigned int root_0 = players_uf[player_id].find(0);
-	  unsigned int root_max_idx = players_uf[player_id].find(max_idx);
-	  if (root_0 != root_max_idx) {
-	    std::stringstream err;
-	    err << "Root of node 0 is  " << root_0 << " != " << root_max_idx;
-	    err << " the root of node " << max_idx << std::endl;
-	    throw std::runtime_error{err.str()};
-	  }
-	  
-	  // End the game
-	  game_end = true;
-	  
-	  if(draw) {
+	if (!draw) {
+	  // No path needed. Use Union-Find to detect a cycle
+	  // (i.e. the 2 virtual nodes have the same root)	  
+	  unsigned int max_idx{board_size * board_size + 1};
+	  unsigned int root_0{players_uf[player_id].find(0)};
+	  unsigned int root_max_idx{players_uf[player_id].find(max_idx)};
+	  if (root_0 == root_max_idx)
+	     game_end = true;
+	} else {
+	  Path path;
+	  game_end = has_won(player_id, &path);
+
+	  if(game_end) {
 	    std::stringstream sstr;
 	    if(player_id == blue_player)
 	      sstr << "\nBlue won! (the b's show the winning path)" << std::endl;
-	  else
-	    sstr << "\nRed won! (the r's show the winning path)" << std::endl;
+	    else
+	      sstr << "\nRed won! (the r's show the winning path)" << std::endl;
 	    
 	    if(ui != nullptr)
 	      ui->print(sstr.str());
@@ -316,7 +312,6 @@ struct HexBoard {
 	}
       }
     }
-
     // Position selected = true
     return true;
   }
