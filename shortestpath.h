@@ -74,12 +74,12 @@ struct ShortestPath<Graph_T<Color_T>> {
   // Enable the copy of the derived class such that computation can be run
   // in parallell by multiple threads.
   virtual std::unique_ptr<ShortestPath<Graph_T<Color_T>>> clone(const Graph_T<Color_T>& graph) const = 0;
-  
-  // Compute the shortest path between 2 nodes
-  //virtual void compute_path(Path& path) = 0;
 
   // Compute the shortest path between 2 nodes
   virtual void compute_path(Path& path, Color_T* color=nullptr) = 0;
+
+  // Compute all the shortest starting at a given node
+  virtual std::vector<Node> compute_parents(Node& start, Color_T* color=nullptr) = 0;
 
   // Get algorithm name
   const std::string get_name() {
@@ -108,9 +108,17 @@ struct ShortestPath<Graph_T<Color_T>> {
       compute_path(path, nullptr);
   }
 
-  // Get the shortest path with constraint on edge given by color
+  // Get the shortest path between 2 nodes with constraint
+  // on edge given by color. 
   void get_shortest_path(Path& path, Color_T* color) {
     compute_path(path, color);
+  }
+
+  // Get all shortest paths starting at a given node with
+  // constraint on edge given by color.
+  // Return a vector of parent node.
+  std::vector<Node> get_shortest_paths(Node& start, Color_T* color) {
+    return compute_parents(start, color);
   }
   
   // Get the current number of object alive
@@ -174,17 +182,13 @@ struct DijkstraShortestPath<Graph_T<Color_T>>: ShortestPath<Graph_T<Color_T>> {
   }
   
 private:
-  // Compute the shortest path of a given color between 2 nodes
-  // (path.n1 and path.n2) using Dijkstra algorithm
-  void compute_path(Path& path,
-		    Color_T* color=nullptr) override {
-
+  
+  std::vector<Node> compute_parents(Node& start, Color_T* color=nullptr) override {
+    
     const Graph_T<Color_T>* graph{this->get_graph()};
     unsigned int graph_size{graph->V()};
     
-    Node start{path.n1};
     start.value = 0.0;
-    Node end{path.n2};
 
     // Add the starting node to the queue
     std::priority_queue<Node, std::vector<Node>, std::greater<Node>> node_queue;
@@ -214,8 +218,7 @@ private:
 	graph->get_neighbors(current_node, neighbors);
       else
 	graph->get_neighbors(current_node, neighbors, color);
-
-			     
+	     
       if(neighbors.size() == 0) {
 	//std::cout << "Node " << current_node.id << " has no neighbor\n";
 	continue;
@@ -238,7 +241,20 @@ private:
 	}
       }
     }
+    
+    return parent;
+  }
   
+  // Compute the shortest path of a given color between 2 nodes
+  // (path.n1 and path.n2) using Dijkstra algorithm
+  void compute_path(Path& path,
+		    Color_T* color=nullptr) override {
+
+    Node start{path.n1};
+    Node end{path.n2};
+    
+    std::vector<Node> parent = compute_parents(start, color);
+    
     if(!parent[end.id].exist()) {
       // There is no path to node 'end'
       //std::cout << "There is no path from node " << start.id;
@@ -261,7 +277,9 @@ private:
     }
     
     // Set the path distance (sum of the weights of edges that make the path)
-    path.distance = min_value[end.id];
+    Node end_parent{parent[end.id]};
+    path.distance = end_parent.value +
+      this->get_graph()->get_edge_value(end.id, end_parent.id);
 
     //std::cout << "Path length: " << path.distance << std::endl;
     

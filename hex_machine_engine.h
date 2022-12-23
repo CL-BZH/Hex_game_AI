@@ -751,7 +751,7 @@ struct HexMachineMcIA: HexMachineEngine {
   #endif
   
   // The 'task' performed by a thread for the Monte-Carlo simulation
-  // Each thread receives the cuurent board with a particular position
+  // Each thread receives the current board with a particular position
   // selected as a candidate for a move for the player identified by 'player_id'.
   // Then it performs the following task:
   //    1. Make a copy of the board
@@ -762,8 +762,8 @@ struct HexMachineMcIA: HexMachineEngine {
   //          and store it.
   //       c. Clean the cells filled in a.
   void mc_task(unsigned int thread_number, unsigned int runs,
-		   unsigned int selected_node_id, unsigned int player_id,
-		   const HexBoard& board) {
+	       unsigned int selected_node_id, unsigned int player_id,
+	       const HexBoard& board) {
 
     // Each thread has its own generator...
     std::mt19937 gen(rd());
@@ -811,7 +811,7 @@ struct HexMachineMcIA: HexMachineEngine {
     
     // 
     double player_quality_total{std::accumulate(player_quality.begin(),
-					    player_quality.end(), 0.0)};
+						player_quality.end(), 0.0)};
 
     // Total number of shortest path for the opponent if select the
     // current position
