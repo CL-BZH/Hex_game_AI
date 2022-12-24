@@ -114,6 +114,41 @@ struct ShortestPath<Graph_T<Color_T>> {
     compute_path(path, color);
   }
 
+  // Get the shortest path between 2 nodes with constraint
+  // on edge given by color with the vector of parent already computed.
+  void get_shortest_path(Path& path, std::vector<Node> &parent, Color_T* color) {
+
+    //Node start{path.n1};
+    Node end{path.n2};
+    
+    if(!parent[end.id].exist()) {
+      // There is no path to node 'end'
+      //std::cout << "There is no path from node " << start.id;
+      //std::cout << " to node " << end.id << std::endl;
+      return;
+    }
+    
+    //std::cout << "Building the path from node " << start.id;
+    //std::cout << " to node " << end.id << std::endl;
+    
+    path.route.push_back(end);
+    
+    Node previous{parent[end.id]};
+    
+    while(previous.value != INFINITE_VALUE) {
+      //std::cout << "Previous (id, value) = ";
+      //std::cout << '(' << previous.id << ", " << previous.value << ')' << std::endl;
+      path.route.insert(path.route.begin(), previous); 
+      previous = parent[previous.id];
+    }
+    
+    // Set the path distance (sum of the weights of edges that make the path)
+    Node end_parent{parent[end.id]};
+    path.distance = end_parent.value +
+      this->get_graph()->get_edge_value(end.id, end_parent.id);
+
+  }
+
   // Get all shortest paths starting at a given node with
   // constraint on edge given by color.
   // Return a vector of parent node.

@@ -525,6 +525,10 @@ struct HexBoard {
 	
 	Node west_node{west_node_id};
 
+	//Find all shortest paths from the west node to any east node
+	DijkstraShortestPath<ColoredGraph<EdgeColor>> dsp{graph};
+	std::vector<Node> parents{dsp.get_shortest_paths(west_node, &color)};
+	
 	// For all the nodes on the east side check if there is a path from
 	// the current west node to that east node
 	const unsigned int east_node_column{board_size};
@@ -540,12 +544,10 @@ struct HexBoard {
 	  
 	  Node east_node{east_node_id};
 
-	  //Find a path
-	  DijkstraShortestPath<ColoredGraph<EdgeColor>> dsp{graph};
 	  Path path;
 	  path.n1 = west_node;
 	  path.n2 = east_node;
-	  dsp.get_shortest_path(path, &color);
+	  dsp.get_shortest_path(path, parents, &color);
 
 	  if(path.is_valid()) {
 	    all_path.push(path);
@@ -573,6 +575,10 @@ struct HexBoard {
 	
 	Node north_node{north_node_id};
 	
+	//Find all shortest paths from the north node to any south node
+	DijkstraShortestPath<ColoredGraph<EdgeColor>> dsp{graph};
+	std::vector<Node> parents{dsp.get_shortest_paths(north_node, &color)};
+	
 	// For all the nodes on the south side check if there is a path from
 	// the current north node to that south node
 	const unsigned int south_node_row{board_size};
@@ -588,12 +594,10 @@ struct HexBoard {
 	  
 	  Node south_node{south_node_id};
 	  
-	  //Find a path
-	  DijkstraShortestPath<ColoredGraph<EdgeColor>> dsp{graph};
 	  Path path;
 	  path.n1 = north_node;
 	  path.n2 = south_node;
-	  dsp.get_shortest_path(path, &color);
+	  dsp.get_shortest_path(path, parents, &color);
 
 	  if(path.is_valid()) {
 	    all_path.push(path);
