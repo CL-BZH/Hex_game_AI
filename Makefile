@@ -9,8 +9,8 @@
 CXX = g++
 
 # define any compile-time flags
-CXXFLAGS = -Wall -pthread -Wno-reorder -std=c++11
-#CXXFLAGS = -Wall -pthread -Wno-reorder -std=c++11 -g
+CXXFLAGS = -Wall -pthread -Wno-reorder -std=c++20
+#CXXFLAGS = -Wall -pthread -Wno-reorder -std=c++20 -g
 
 # For printing the connections between nodes (when _PRINT_MATRIX is not defined)
 #CPPFLAGS += -D_SHOW_EDGES
@@ -27,7 +27,6 @@ CPPFLAGS += -D_TEST_HEX
 
 # Value for starting brute force algorithm in the Monte-Carlo engine
 #CPPFLAGS += -D_BF_SUP=20
-
 
 INCLUDES =
 

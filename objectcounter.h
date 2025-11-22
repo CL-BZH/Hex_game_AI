@@ -4,16 +4,21 @@
 #include <mutex>
 
 // Simple counter to track the number of object created
-struct ObjectCounter {
-  ObjectCounter(): count{0} {}
+struct ObjectCounter
+{
+  ObjectCounter() : count{0}
+  {
+  }
 
-  ObjectCounter& operator++() {
+  ObjectCounter& operator++()
+  {
     mu.lock();
     count++;
     mu.unlock();
     return *this;
   }
-  ObjectCounter& operator--() {
+  ObjectCounter& operator--()
+  {
     mu.lock();
     count--;
     mu.unlock();
@@ -23,14 +28,15 @@ struct ObjectCounter {
   // constructor is deleted since we have a mutex
   const ObjectCounter operator++(int dummy) = delete;
   const ObjectCounter operator--(int dummy) = delete;
-  
-  unsigned int operator()() const {
+
+  unsigned int operator()() const
+  {
     return count;
   }
-  
+
 private:
   std::mutex mu;
   unsigned int count;
 };
 
-#endif //OBJECTCOUNTER_H
+#endif  // OBJECTCOUNTER_H

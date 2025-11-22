@@ -1,20 +1,19 @@
 #ifndef HEX_BOARD_H
 #define HEX_BOARD_H
 
-#include <sstream> 
-#include <string>
-#include <iomanip>
 #include <algorithm>
+#include <cctype>
+#include <iomanip>
 #include <queue>
 #include <random>
+#include <sstream>
+#include <string>
 
-#include <cctype>
-
-#include "graph.h"
 #include "dfs.h"
+#include "graph.h"
+#include "hex_ui.h"
 #include "shortestpath.h"
 #include "unionfind.h"
-
 
 // Maximun number of players
 const unsigned int max_players{2};
@@ -24,27 +23,33 @@ const unsigned int blue_player{0};
 const unsigned int red_player{1};
 
 // Four type of cells on the board
-enum class NodeValue: unsigned int {
-  B = blue_player, // Defines a node already selected by the Blue player
-  R = red_player,  // Defines a node already selected by the Red player
-  AVAILABLE,       // Defines a node that is free
-  OUTSIDE,         // Defines a node that is ouside the board
+enum class NodeValue : unsigned int
+{
+  B = blue_player,  // Defines a node already selected by the Blue player
+  R = red_player,   // Defines a node already selected by the Red player
+  AVAILABLE,        // Defines a node that is free
+  OUTSIDE,          // Defines a node that is ouside the board
 };
 
-struct PlayersColors {
+struct PlayersColors
+{
   // colors[blue_player] = "Blue", colors[red_player] = "Red"
   static const std::string colors[max_players];
-  
-  static const std::string color(unsigned int player) {
+
+  static const std::string color(unsigned int player)
+  {
     return colors[player];
   }
-  
+
   // Accessor
-  char operator[](NodeValue node_value) const {
+  char operator[](NodeValue node_value) const
+  {
     return (*this)[static_cast<int>(node_value)];
   }
-  char operator[](unsigned int player_id) const {
-    if(!((player_id == blue_player) ||  (player_id == red_player))) {
+  char operator[](unsigned int player_id) const
+  {
+    if (!((player_id == blue_player) || (player_id == red_player)))
+    {
       throw std::runtime_error{"Invalid call to PlayerColors[]"};
     }
     return colors[player_id][0];
@@ -54,170 +59,185 @@ struct PlayersColors {
 const std::string PlayersColors::colors[]{"Blue", "Red"};
 
 const unsigned int min_board_size{3};
-const unsigned int max_board_size{99}; //This is very unrealistic...
+const unsigned int max_board_size{99};  // This is very unrealistic...
 
-struct HexBoard {
-
-  HexBoard(unsigned int size=11):
-    board_size(size),
-    board_cells(size*size),
-    graph_size{(size+2)*(size+2)},
-    graph{graph_size, EdgeColor::Any} {
-      
-      if (size < min_board_size) {
-	std::stringstream err;
-	err << "The board's size should be at least " << min_board_size;
-	throw std::runtime_error{err.str()};
-      }
-      if (size > max_board_size) {
-	std::stringstream err;
-	err << "The maximum board's size is " << max_board_size;
-	throw std::runtime_error{err.str()};
-      }
-	
-      // Initialize the nodes
-      init_nodes();
-      
-      // Build the graph that represent the Hex game (i.e. add edges)
-      build_graph();
-
-      /*
-       * Use Union-Find algo to detect if a path exist from one side to
-       * the other (i.e. from West to East for the Blue player and from
-       * North to South for the Red player).
-       * 2 virtuals node are added, one for each side. That is, for Blue player,
-       * (respectively the Red player) node at index 0 represent the West border
-       * (respectively the North border) and node at index size^2 + 1 represents
-       * the East border (repectively the South border).
-       */
-      players_uf[0] = UnionFind(size*size+2);
-      players_uf[1] = UnionFind(size*size+2);
-      
+struct HexBoard
+{
+  HexBoard(unsigned int size = 11)
+      : board_size(size),
+        board_cells(size * size),
+        graph_size{(size + 2) * (size + 2)},
+        graph{graph_size, EdgeColor::Any}
+  {
+    if (size < min_board_size)
+    {
+      std::stringstream err;
+      err << "The board's size should be at least " << min_board_size;
+      throw std::runtime_error{err.str()};
+    }
+    if (size > max_board_size)
+    {
+      std::stringstream err;
+      err << "The maximum board's size is " << max_board_size;
+      throw std::runtime_error{err.str()};
     }
 
-  // Copy constructor
-  HexBoard(const HexBoard& rhs): board_size{rhs.board_size},
-				 board_cells{rhs.board_cells},
-				 graph_size{rhs.graph_size},
-				 nb_selected_cells{rhs.nb_selected_cells},
-				 graph{graph_size, EdgeColor::Any} {
+    // Initialize the nodes
+    init_nodes();
 
+    // Build the graph that represent the Hex game (i.e. add edges)
+    build_graph();
+
+    /*
+     * Use Union-Find algo to detect if a path exist from one side to
+     * the other (i.e. from West to East for the Blue player and from
+     * North to South for the Red player).
+     * 2 virtuals node are added, one for each side. That is, for Blue player,
+     * (respectively the Red player) node at index 0 represent the West border
+     * (respectively the North border) and node at index size^2 + 1 represents
+     * the East border (repectively the South border).
+     */
+    players_uf[0] = UnionFind(size * size + 2);
+    players_uf[1] = UnionFind(size * size + 2);
+  }
+
+  // Copy constructor
+  HexBoard(const HexBoard& rhs)
+      : board_size{rhs.board_size},
+        board_cells{rhs.board_cells},
+        graph_size{rhs.graph_size},
+        nb_selected_cells{rhs.nb_selected_cells},
+        graph{graph_size, EdgeColor::Any}
+  {
     // Copy the nodes vector
     nodes = rhs.nodes;
-    
+
     // Copy the original graph in this one
     copy_graph(rhs.graph);
 
     // Get own Union-Find objects
-    players_uf[0] = UnionFind(rhs.board_size*rhs.board_size+2);
-    players_uf[1] = UnionFind(rhs.board_size*rhs.board_size+2);
+    players_uf[0] = UnionFind(rhs.board_size * rhs.board_size + 2);
+    players_uf[1] = UnionFind(rhs.board_size * rhs.board_size + 2);
   }
 
-  void release_board_node(unsigned int node_id) {
+  void release_board_node(unsigned int node_id)
+  {
     // Clear edges color
     uncolor_edges(node_id);
 
     // release the node
     set_node_value(node_id, NodeValue::AVAILABLE);
-      
+
     // Decrease by 1 the total number of selected cells
     --nb_selected_cells;
   }
 
-  void release_board_node(unsigned int board_row, unsigned int board_column) {
-    unsigned int node_row{board_row+1};
-    unsigned int node_column{board_column+1};
-    unsigned int node_id{node_row*(board_size+2) + node_column};
+  void release_board_node(unsigned int board_row, unsigned int board_column)
+  {
+    unsigned int node_row{board_row + 1};
+    unsigned int node_column{board_column + 1};
+    unsigned int node_id{node_row * (board_size + 2) + node_column};
     release_board_node(node_id);
   }
-  
-  void release_board_nodes(std::vector<unsigned int>& nodes_ids) {
-    for(auto node_id: nodes_ids) {
+
+  void release_board_nodes(std::vector<unsigned int>& nodes_ids)
+  {
+    for (auto node_id : nodes_ids)
+    {
       release_board_node(node_id);
     }
   }
-  
+
   void fill_with_color(unsigned int player_id,
-		       const std::vector<std::array<unsigned int, 2>>& cells) {
+                       const std::vector<std::array<unsigned int, 2>>& cells)
+  {
     unsigned int node_row;
     unsigned int node_column;
     unsigned int node_id;
-    
-    for(auto cell: cells) {
+
+    for (auto cell : cells)
+    {
       node_row = cell[0] + 1;
       node_column = cell[1] + 1;
-      node_id = node_row*(board_size+2) + node_column;
+      node_id = node_row * (board_size + 2) + node_column;
       // Register the player has owner of this selected cell
       nodes[node_id].value = static_cast<double>(player_id);
-    
+
       // Increase by 1 the total number of selected cells
       ++nb_selected_cells;
 
       // Check if it is possible to color some edges
       color_edges(node_id, player_id);
     }
-    //draw_board();
+    // draw_board();
   }
 
-  void complete_with_color(unsigned int player_id) {
-    
+  void complete_with_color(unsigned int player_id)
+  {
     unsigned int node_id;
     std::vector<unsigned int> available_nodes_ids;
-    
+
     // Get index of all available positions
-    for(unsigned int node_row{1}; node_row < board_size+1; ++node_row) {
-      for(unsigned int node_column{1}; node_column < board_size+2; ++node_column) {
-	node_id = node_row*(board_size+2) + node_column;
-	if(is_node_available(node_id)) {
-	  //std::cout << "Available: " << node_id << std::endl;
-	  available_nodes_ids.push_back(node_id);
-	}
+    for (unsigned int node_row{1}; node_row < board_size + 1; ++node_row)
+    {
+      for (unsigned int node_column{1}; node_column < board_size + 2; ++node_column)
+      {
+        node_id = node_row * (board_size + 2) + node_column;
+        if (is_node_available(node_id))
+        {
+          // std::cout << "Available: " << node_id << std::endl;
+          available_nodes_ids.push_back(node_id);
+        }
       }
     }
-    
-    //std::cout << "Available nodes: " << available_nodes_ids.size() << std::endl;
-    
-    for(auto node_id: available_nodes_ids) {
+
+    // std::cout << "Available nodes: " << available_nodes_ids.size() << std::endl;
+
+    for (auto node_id : available_nodes_ids)
+    {
       // Register the player has owner of this selected cell
       nodes[node_id].value = static_cast<double>(player_id);
-    
+
       // Increase by 1 the total number of selected cells
       ++nb_selected_cells;
 
       // Check if it is possible to color some edges
       color_edges(node_id, player_id);
     }
-    //draw_board();
+    // draw_board();
   }
 
   void rand_fill_board(unsigned int first_player_id, std::mt19937& gen,
-		       std::vector<unsigned int>& available_nodes_ids) {
-    
+                       std::vector<unsigned int>& available_nodes_ids)
+  {
     unsigned int node_id;
-      
+
     // Get index of all available positions
-    for(unsigned int node_row{1}; node_row < board_size+1; ++node_row) {
-      for(unsigned int node_column{1}; node_column < board_size+2; ++node_column) {
-	node_id = node_row*(board_size+2) + node_column;
-	if(is_node_available(node_id)) {
-	  //std::cout << "Available: " << node_id << std::endl;
-	  available_nodes_ids.push_back(node_id);
-	}
+    for (unsigned int node_row{1}; node_row < board_size + 1; ++node_row)
+    {
+      for (unsigned int node_column{1}; node_column < board_size + 2; ++node_column)
+      {
+        node_id = node_row * (board_size + 2) + node_column;
+        if (is_node_available(node_id))
+        {
+          // std::cout << "Available: " << node_id << std::endl;
+          available_nodes_ids.push_back(node_id);
+        }
       }
     }
-    
-    //std::cout << "Available nodes: " << available_nodes_ids.size() << std::endl;
 
-    //Shuffle available node_id
-    std::shuffle(std::begin(available_nodes_ids),
-		 std::end(available_nodes_ids), gen);
+    // std::cout << "Available nodes: " << available_nodes_ids.size() << std::endl;
+
+    // Shuffle available node_id
+    std::shuffle(std::begin(available_nodes_ids), std::end(available_nodes_ids), gen);
 
     unsigned int player_id{first_player_id};
-    
-    for(auto node_id: available_nodes_ids) {
+
+    for (auto node_id : available_nodes_ids)
+    {
       // Register the player has owner of this selected cell
       nodes[node_id].value = static_cast<double>(player_id);
-    
+
       // Increase by 1 the total number of selected cells
       ++nb_selected_cells;
 
@@ -225,98 +245,63 @@ struct HexBoard {
       color_edges(node_id, player_id);
 
       // switch players
-      player_id = (player_id == blue_player)? red_player : blue_player;
+      player_id = (player_id == blue_player) ? red_player : blue_player;
     }
-    //draw_board();
+    // draw_board();
   }
-  
+
   // Select a position on the board.
   // Returns 'true' if a valid position was selected (false otherwise)
-  bool select(unsigned int board_row,
-	      unsigned int board_column,
-	      unsigned int player_id,
-	      bool& game_end,
-	      bool draw=false,
-	      std::stringstream* err=nullptr) {
+  bool select(unsigned int board_row, unsigned int board_column, unsigned int player_id,
+              bool& game_end, bool draw = false, std::stringstream* err = nullptr)
+  {
+    if (game_end) throw std::runtime_error{"Cannot call select with game_end == true"};
 
-    if(game_end)
-      throw std::runtime_error{"Cannot call select with game_end == true"};     
-      
     if (!((player_id == blue_player) || (player_id == red_player)))
-      throw std::runtime_error{"Invalid player's Id"};     
-    
+      throw std::runtime_error{"Invalid player's Id"};
+
     // Convert board's row and column to node row and column
     // (that is because I added a layer of 'OUTSIDE' nodes around the board)
-    unsigned int node_row{board_row+1};
-    unsigned int node_column{board_column+1};
-    unsigned int node_id{node_row*(board_size+2) + node_column};
+    unsigned int node_row{board_row + 1};
+    unsigned int node_column{board_column + 1};
+    unsigned int node_id{node_row * (board_size + 2) + node_column};
     NodeValue node_value;
-    
-    if((board_row >= board_size) || (board_column >= board_size) ||
-       (!is_on_board(node_id))) {
-      if(err != nullptr)
-	*err << "Not valid row " << board_row << " or column "
-	     << board_column << std::endl;
+
+    if ((board_row >= board_size) || (board_column >= board_size) || (!is_on_board(node_id)))
+    {
+      if (err != nullptr)
+        *err << "Not valid row " << board_row << " or column " << board_column << std::endl;
       return false;
     }
 
-    node_value= static_cast<NodeValue>(nodes[node_id].value);
-    
-    if (node_value != NodeValue::AVAILABLE) {
-      if(err != nullptr)
-	*err << "Already selected position";
+    node_value = static_cast<NodeValue>(nodes[node_id].value);
+
+    if (node_value != NodeValue::AVAILABLE)
+    {
+      if (err != nullptr) *err << "Already selected position";
       return false;
     }
-    
+
     // From here select returns true (i.e. a position was selected)
-    
+
     // Register the player has owner of this selected cell
     nodes[node_id].value = static_cast<double>(player_id);
-    
+
+    // Check if it is possible to color some edges
+    // It might be attaching a node to a virtual node (if the node is
+    // on the edge of the board.
+    color_edges(node_id, player_id);
+
     // Increase by 1 the total number of selected cells
     ++nb_selected_cells;
 
-    if (nb_selected_cells > 1) {
-      // Check if it is possible to color some edges
-      color_edges(node_id, player_id);
+    if (nb_selected_cells >= (2 * board_size - 1)) game_end = has_won(player_id, &path);
 
-      if (nb_selected_cells >= (2 * board_size - 1)) {
-	// Check if there is a winner or no more possibility
-	if (!draw) {
-	  // No path needed. Use Union-Find to detect a cycle
-	  // (i.e. the 2 virtual nodes have the same root)	  
-	  unsigned int max_idx{board_size * board_size + 1};
-	  unsigned int root_0{players_uf[player_id].find(0)};
-	  unsigned int root_max_idx{players_uf[player_id].find(max_idx)};
-	  if (root_0 == root_max_idx)
-	     game_end = true;
-	} else {
-	  Path path;
-	  game_end = has_won(player_id, &path);
-
-	  if(game_end) {
-	    std::stringstream sstr;
-	    if(player_id == blue_player)
-	      sstr << "\nBlue won! (the b's show the winning path)" << std::endl;
-	    else
-	      sstr << "\nRed won! (the r's show the winning path)" << std::endl;
-	    
-	    if(ui != nullptr)
-	      ui->print(sstr.str());
-	    else
-	      std::cout << sstr.str();
-	    
-	    // Draw winning path replacing 'B' by 'b' or 'R' by 'r'
-	    draw_board(&path.route);
-	  }
-	}
-      }
-    }
     // Position selected = true
     return true;
   }
 
-  /* 
+  /*
    * Draw the board using ascii symbols
    * e.g. for a 3x3 board:
    *  . - . - .
@@ -328,157 +313,165 @@ struct HexBoard {
    * The positions of the Blue and Red players are indicated by 'B'
    * and 'R' character respectively.
    */
-  
-  void draw_board(const std::vector<Node>* route=nullptr) {
 
+  void draw_board(const std::vector<Node>* route = nullptr)
+  {
     std::stringstream ss;
 
     // Draw column indexes
-    for(unsigned int column{0}; column < board_size; ++column) {
-      if(column < 10)
-	ss << std::string(3, ' ') << column;
+    for (unsigned int column{0}; column < board_size; ++column)
+    {
+      if (column < 10)
+        ss << std::string(3, ' ') << column;
       else
-	ss << std::string(2, ' ') << column;
+        ss << std::string(2, ' ') << column;
     }
 
     ss << std::endl;
 
     unsigned int row{1};
-    
-    for(; row < board_size+1; ++row) {
-  
+
+    for (; row < board_size + 1; ++row)
+    {
       // Draw row index
-      if(row < 11)
-	ss << std::string(2*row - 1, ' ') << row - 1 << std::string(1, ' ');
-      else // row - 1 will be bigger than 9 (and less than 100 by construction)
-	ss << std::string(2*row - 2, ' ') << row - 1 << std::string(1, ' ');
-      
+      if (row < 11)
+        ss << std::string(2 * row - 1, ' ') << row - 1 << std::string(1, ' ');
+      else  // row - 1 will be bigger than 9 (and less than 100 by construction)
+        ss << std::string(2 * row - 2, ' ') << row - 1 << std::string(1, ' ');
+
       // Draw the nodes' content ('.', 'R' or 'B') and West-East edges
-      for(unsigned int column{1}; column < board_size; ++column) {
-	unsigned int node_id{row*(board_size+2) + column};
-	char node_char{get_node_char(row, column)};
-	if (route != nullptr) {
-	  bool found{false};
-	  for (auto node: *route) {
-	    if(node.id == node_id) {
-	      found = true;
-	      break;
-	    }
-	  }
-	  if(found) {
-	    // The node is on the route => change the character to lowercase
-	    node_char = tolower(node_char);
-	  }
-	}
-	ss << node_char;
-	ss << ' ';
-	ss << '-';
-	ss << ' ';
+      for (unsigned int column{1}; column < board_size; ++column)
+      {
+        unsigned int node_id{row * (board_size + 2) + column};
+        char node_char{get_node_char(row, column)};
+        if (route != nullptr)
+        {
+          bool found{false};
+          for (auto node : *route)
+          {
+            if (node.id == node_id)
+            {
+              found = true;
+              break;
+            }
+          }
+          if (found)
+          {
+            // The node is on the route => change the character to lowercase
+            node_char = tolower(node_char);
+          }
+        }
+        ss << node_char;
+        ss << ' ';
+        ss << '-';
+        ss << ' ';
       }
 
-      unsigned int node_id{row*(board_size+2) + board_size};
+      unsigned int node_id{row * (board_size + 2) + board_size};
       char node_char{get_node_char(row, board_size)};
-      if (route != nullptr) {
-	bool found{false};
-	for (auto node: *route) {
-	  if(node.id == node_id) {
-	      found = true;
-	      break;
-	  }
-	}
-	if(found) 
-	  node_char = tolower(node_char);
+      if (route != nullptr)
+      {
+        bool found{false};
+        for (auto node : *route)
+        {
+          if (node.id == node_id)
+          {
+            found = true;
+            break;
+          }
+        }
+        if (found) node_char = tolower(node_char);
       }
       ss << node_char;
       // Write the row index again on the right of the board
       ss << std::string(1, ' ') << row - 1;
       ss << std::endl;
-      if(row == board_size)
-	break;
+      if (row == board_size) break;
       // Draw the North-South edges
-      ss << std::string(2*row+2, ' ');
-      for(unsigned int column{1}; column < board_size; ++column) {
-	ss << '\\';
-	ss << " ";
-	ss << '/';
-	ss << ' ';
+      ss << std::string(2 * row + 2, ' ');
+      for (unsigned int column{1}; column < board_size; ++column)
+      {
+        ss << '\\';
+        ss << " ";
+        ss << '/';
+        ss << ' ';
       }
       ss << '\\';
       ss << std::endl;
     }
-    
+
     // Draw column indexes again at the bottom
-    ss << std::string(2*row - 1, ' ');
-    for(unsigned int column{0}; column < board_size; ++column) {
-      if(column < 10)
-	ss << std::string(3, ' ') << column;
+    ss << std::string(2 * row - 1, ' ');
+    for (unsigned int column{0}; column < board_size; ++column)
+    {
+      if (column < 10)
+        ss << std::string(3, ' ') << column;
       else
-	ss << std::string(2, ' ') << column;
-	
+        ss << std::string(2, ' ') << column;
     }
     ss << std::endl;
 
     std::string str{ss.str()};
-    
-    if(ui != nullptr)
-      ui->draw_board(str);
-    else
-      std::cout << str;
 
+    if (ui != nullptr) ui->draw_board(str);
   }
 
   // Tells if the board is full
-  bool board_is_full() const {
+  bool board_is_full() const
+  {
     return (nb_selected_cells == board_cells);
   }
 
   // Tells if the board is empty
-  bool board_is_empty() const {
+  bool board_is_empty() const
+  {
     return (nb_selected_cells == 0);
   }
 
-  unsigned int nb_available_cells() const {
+  unsigned int nb_available_cells() const
+  {
     return board_cells - nb_selected_cells;
   }
-  
+
   // Get the percentage of available cells on the board
-  double percentage_available_cells() const {
+  double percentage_available_cells() const
+  {
     return (static_cast<double>(nb_available_cells())) / board_cells;
   }
 
   // Get the first cell availalable starting from a given row and column
-  bool get_first_available_position(unsigned int& board_row,
-				    unsigned int& board_column,
-				    unsigned int player_id,
-				    bool& game_end) {
-
-    for(; board_row < board_size; ++board_row) {
-      for(; board_column < board_size; ++board_column) {
-	if(select(board_row, board_column, player_id, game_end))
-	   return true;
-	// Try next column in the current line
+  bool get_first_available_position(unsigned int& board_row, unsigned int& board_column,
+                                    unsigned int player_id, bool& game_end)
+  {
+    for (; board_row < board_size; ++board_row)
+    {
+      for (; board_column < board_size; ++board_column)
+      {
+        if (select(board_row, board_column, player_id, game_end)) return true;
+        // Try next column in the current line
       }
       board_column = 0;
       // Try next line
     }
-    
+
     return false;
   }
-  
-  void get_all_available_position(std::vector<std::array<unsigned int, 2>>&
-				  positions) {
 
+  void get_all_available_position(std::vector<std::array<unsigned int, 2>>& positions)
+  {
     bool game_end{false};
     unsigned int board_row{0};
     unsigned int board_column{0};
-      
-    for(; board_row < board_size; ++board_row) {
-      for(; board_column < board_size; ++board_column) {
-	// force "game_end" to false
-	game_end = false;
-	if(get_first_available_position(board_row, board_column, 0, game_end))
-	  positions.push_back({board_row, board_column});
-	// Try next column in the current line
+
+    for (; board_row < board_size; ++board_row)
+    {
+      for (; board_column < board_size; ++board_column)
+      {
+        // force "game_end" to false
+        game_end = false;
+        if (get_first_available_position(board_row, board_column, 0, game_end))
+          positions.push_back({board_row, board_column});
+        // Try next column in the current line
       }
       board_column = 0;
       // Try next line
@@ -499,173 +492,191 @@ struct HexBoard {
    * other (of course if there is a path from West to East there cannot be a
    * path from North to South and vice-versa).
    */
-  bool has_won(unsigned int player, Path* path=nullptr,
-	       double* quality=nullptr) {
-    
+  bool has_won(unsigned int player, Path* path = nullptr, double* quality = nullptr)
+  {
     EdgeColor color{static_cast<EdgeColor>(player)};
 
     // Store all valid path in a queue
     std::priority_queue<Path, std::vector<Path>, std::greater<Path>> all_path{};
-    
-    if (player == blue_player) {
+
+    if (player == blue_player)
+    {
       // The blue player must build a path between West and East
-      
+
       // For all the nodes on the west side check if there is/are a path(s)
       // to east nodes (i.e. nodes on the last column)
       const unsigned int west_node_column{1};
-      for(unsigned int west_node_row{1}; west_node_row < board_size+1;
-	    ++west_node_row) {
-	unsigned int west_node_id{west_node_row*(board_size+2) +
-	    west_node_column};
-	
-	// If the cell is not blue then pass since there is no way to start
-	// a blue path from that node
-	if(get_node_value(west_node_id) != NodeValue::B)
-	  continue;
-	
-	Node west_node{west_node_id};
+      for (unsigned int west_node_row{1}; west_node_row < board_size + 1; ++west_node_row)
+      {
+        unsigned int west_node_id{west_node_row * (board_size + 2) + west_node_column};
 
-	//Find all shortest paths from the west node to any east node
-	DijkstraShortestPath<ColoredGraph<EdgeColor>> dsp{graph};
-	std::vector<Node> parents{dsp.get_shortest_paths(west_node, &color)};
-	
-	// For all the nodes on the east side check if there is a path from
-	// the current west node to that east node
-	const unsigned int east_node_column{board_size};
-	for(unsigned int east_node_row{1}; east_node_row < board_size+1;
-	    ++east_node_row) {
-	  unsigned int east_node_id{east_node_row*(board_size+2) +
-	      east_node_column};
-	  
-	  // If the cell is not blue then pass since there is no way to end
-	  // a blue path from that node
-	  if(get_node_value(east_node_id) != NodeValue::B)
-	    continue;
-	  
-	  Node east_node{east_node_id};
+        // If the cell is not blue then pass since there is no way to start
+        // a blue path from that node
+        if (get_node_value(west_node_id) != NodeValue::B) continue;
 
-	  Path path;
-	  path.n1 = west_node;
-	  path.n2 = east_node;
-	  dsp.get_shortest_path(path, parents, &color);
+        Node west_node{west_node_id};
 
-	  if(path.is_valid()) {
-	    all_path.push(path);
-	    if (quality == nullptr)
-	      break;
-	  }
+        // Find all shortest paths from the west node to any east node
+        DijkstraShortestPath<ColoredGraph<EdgeColor>> dsp{graph};
+        std::vector<Node> parents{dsp.get_shortest_paths(west_node, &color)};
 
-	}
+        // For all the nodes on the east side check if there is a path from
+        // the current west node to that east node
+        const unsigned int east_node_column{board_size};
+        for (unsigned int east_node_row{1}; east_node_row < board_size + 1; ++east_node_row)
+        {
+          unsigned int east_node_id{east_node_row * (board_size + 2) + east_node_column};
+
+          // If the cell is not blue then pass since there is no way to end
+          // a blue path from that node
+          if (get_node_value(east_node_id) != NodeValue::B) continue;
+
+          Node east_node{east_node_id};
+
+          Path path;
+          path.n1 = west_node;
+          path.n2 = east_node;
+          dsp.get_shortest_path(path, parents, &color);
+
+          if (path.is_valid())
+          {
+            all_path.push(path);
+            if (quality == nullptr) break;
+          }
+        }
       }
-    } else { //player == red_player
+    }
+    else
+    {  // player == red_player
       // The red player must build a path between North and South
-      
+
       // For all the nodes on the north side check if there is/are a path(s)
       // to south nodes (i.e. nodes on the bottom row)
       unsigned int north_node_row{1};
-      for(unsigned int north_node_column{1}; north_node_column < board_size+1;
-	    ++north_node_column) {
-	unsigned int north_node_id{north_node_row*(board_size+2) +
-	    north_node_column};
+      for (unsigned int north_node_column{1}; north_node_column < board_size + 1;
+           ++north_node_column)
+      {
+        unsigned int north_node_id{north_node_row * (board_size + 2) + north_node_column};
 
-	// If the cell is not red then pass since there is no way to start
-	// a red path from that node
-	if(get_node_value(north_node_id) != NodeValue::R)
-	  continue;
-	
-	Node north_node{north_node_id};
-	
-	//Find all shortest paths from the north node to any south node
-	DijkstraShortestPath<ColoredGraph<EdgeColor>> dsp{graph};
-	std::vector<Node> parents{dsp.get_shortest_paths(north_node, &color)};
-	
-	// For all the nodes on the south side check if there is a path from
-	// the current north node to that south node
-	const unsigned int south_node_row{board_size};
-	for(unsigned int south_node_column{1}; south_node_column < board_size+1;
-	    ++south_node_column) {
-	  unsigned int south_node_id{south_node_row*(board_size+2) +
-	      south_node_column};
-	  
-	  // If the cell is not red then pass since there is no way to end
-	  // a red path from that node
-	  if(get_node_value(south_node_id) != NodeValue::R)
-	    continue;
-	  
-	  Node south_node{south_node_id};
-	  
-	  Path path;
-	  path.n1 = north_node;
-	  path.n2 = south_node;
-	  dsp.get_shortest_path(path, parents, &color);
+        // If the cell is not red then pass since there is no way to start
+        // a red path from that node
+        if (get_node_value(north_node_id) != NodeValue::R) continue;
 
-	  if(path.is_valid()) {
-	    all_path.push(path);
-	    if (quality == nullptr)
-	      break;
-	  }
-	  
-	}
+        Node north_node{north_node_id};
+
+        // Find all shortest paths from the north node to any south node
+        DijkstraShortestPath<ColoredGraph<EdgeColor>> dsp{graph};
+        std::vector<Node> parents{dsp.get_shortest_paths(north_node, &color)};
+
+        // For all the nodes on the south side check if there is a path from
+        // the current north node to that south node
+        const unsigned int south_node_row{board_size};
+        for (unsigned int south_node_column{1}; south_node_column < board_size + 1;
+             ++south_node_column)
+        {
+          unsigned int south_node_id{south_node_row * (board_size + 2) + south_node_column};
+
+          // If the cell is not red then pass since there is no way to end
+          // a red path from that node
+          if (get_node_value(south_node_id) != NodeValue::R) continue;
+
+          Node south_node{south_node_id};
+
+          Path path;
+          path.n1 = north_node;
+          path.n2 = south_node;
+          dsp.get_shortest_path(path, parents, &color);
+
+          if (path.is_valid())
+          {
+            all_path.push(path);
+            if (quality == nullptr) break;
+          }
+        }
       }
     }
 
     // If all_path.empty() then has_won() == false
     bool did_win{!all_path.empty()};
-    
-    if ((path != nullptr) && (did_win)) {
+
+    if ((path != nullptr) && (did_win))
+    {
       // At least 1 path (Select (one of) the shortest one)
-      *path = all_path.top();
-      //path.show();
+      *path = all_path.top();  // Note: this is safe since a copy is done
+      // path.show();
     }
 
     // Compute the quality of a selection base on the number of shortest
     // path that was obtained. For each shortest path found, its quality
     // is the inverse of its length
-    if(quality != nullptr) {
+    if (quality != nullptr)
+    {
       *quality = 0.0;
-      if(did_win) {
-	while(!all_path.empty()) {
-	  double distance{all_path.top().distance};
-	  all_path.pop();
-	  *quality += 1 / distance;
-	}
+      if (did_win)
+      {
+        while (!all_path.empty())
+        {
+          double distance{all_path.top().distance};
+          all_path.pop();
+          *quality += 1 / distance;
+        }
       }
     }
-    
+
     return did_win;
   }
 
   // Get node's value (i.e. Red, Blue, Available, Outside)
-  NodeValue get_node_value(unsigned int node_id) {
+  NodeValue get_node_value(unsigned int node_id)
+  {
     return static_cast<NodeValue>(nodes[node_id].value);
   }
-  
-  void set_ui(HexUI& hex_ui) {
+
+  void set_ui(HexUI& hex_ui)
+  {
     ui = &hex_ui;
   }
-  
+
+  const Path* get_path(void)
+  {
+    return &path;
+  }
+
+  // Get the onboard row and column for node inside the board.
+  // Return -1 if the node is outside the board else 0.
+  bool get_onboard_row_column(unsigned int node_id, unsigned int& row, unsigned int& col)
+  {
+    if (nodes[node_id].value == static_cast<double>(NodeValue::OUTSIDE)) return -1;
+    row = node_id / (board_size + 2) - 1;
+    col = node_id - (row + 1) * (board_size + 2) - 1;
+    return 0;
+  }
+
 private:
+  // Store the path for a winning game
+  Path path;
+
   HexUI* ui{nullptr};
-  
+
   // The board size (number of cell per edge. 11 by default)
   unsigned int board_size{11};
 
   // The total number of cells on the board: board_size*board_size
   unsigned int board_cells;
-  
+
   // The graph size
   unsigned int graph_size;
 
   // number of selected cells
   unsigned int nb_selected_cells{0};
-  
-  enum class EdgeColor {
+
+  enum class EdgeColor
+  {
     Blue,
     Red,
     Any,
   };
 
-  
   // The graph that represent the game
   // The graph object represent the topology of the graph (edges between nodes).
   // No node is actually stored in the graph. (see Graph class in graph.h)
@@ -685,107 +696,121 @@ private:
 
   // Object for the Union-Find Algo. Each player has its subsets.
   UnionFind players_uf[2];
-  
+
   // Initialization of the graph's node
   // All nodes representing cells on the board are marked AVAILABLE.
   // All nodes representing the cells surrounding the board are marked OUTSIDE
-  void init_nodes() {
-    unsigned int total_size{graph_size + 4*board_size + 4};
+  void init_nodes()
+  {
+    unsigned int total_size{graph_size + 4 * board_size + 4};
     nodes.resize(total_size);
-    for(unsigned int row{0}; row < board_size+2; ++row) {
-       for(unsigned int column{0}; column < board_size+2; ++column) {
-	 unsigned int node_id{row*(board_size+2) + column};
-	 nodes[node_id].id = node_id;
-	 // Mark the nodes for the cells surrounding the board as outside.
-	 if((row == 0) || (column == 0))
-	   nodes[node_id].value = static_cast<double>(NodeValue::OUTSIDE);
-	 else if ((row == board_size+1) || (column == board_size+1))
-	   nodes[node_id].value = static_cast<double>(NodeValue::OUTSIDE);
-	 else
-	   nodes[node_id].value = static_cast<double>(NodeValue::AVAILABLE);
-       }
+    for (unsigned int row{0}; row < board_size + 2; ++row)
+    {
+      for (unsigned int column{0}; column < board_size + 2; ++column)
+      {
+        unsigned int node_id{row * (board_size + 2) + column};
+        nodes[node_id].id = node_id;
+        // Mark the nodes for the cells surrounding the board as outside.
+        if ((row == 0) || (column == 0))
+          nodes[node_id].value = static_cast<double>(NodeValue::OUTSIDE);
+        else if ((row == board_size + 1) || (column == board_size + 1))
+          nodes[node_id].value = static_cast<double>(NodeValue::OUTSIDE);
+        else
+          nodes[node_id].value = static_cast<double>(NodeValue::AVAILABLE);
+      }
     }
   }
 
   // Tell if a node is available
-  bool is_node_available(unsigned int node_id) {
+  bool is_node_available(unsigned int node_id)
+  {
     return nodes[node_id].value == static_cast<double>(NodeValue::AVAILABLE);
   }
-  
+
   // Tell if a node is on the board or surrounding it
-  bool is_on_board(unsigned int node_id) {
+  bool is_on_board(unsigned int node_id)
+  {
     return nodes[node_id].value != static_cast<double>(NodeValue::OUTSIDE);
   }
-  bool is_on_board(unsigned int node_row, unsigned int node_column) {
-    unsigned int node_id{node_row*(board_size+2) + node_column};
+  bool is_on_board(unsigned int node_row, unsigned int node_column)
+  {
+    unsigned int node_id{node_row * (board_size + 2) + node_column};
     return is_on_board(node_id);
   }
-  
+
   // Build the graph representing the board, such that each internal hexagon
   // (a node) has six neighbors (so each node would have 6 edges). And the top
   // left corner hexagon and the bottom right corner hexagon have two neighbors,
   // the top right corner hexagon and the bottom left corner hexagon have three
   // neighbors and a non-corner board's edge has 4 neighbors.
-  void build_graph() {
+  void build_graph()
+  {
     // A position on the board is represented by a unique pair (row, column)
     // which gives a node id in the graph. row and column for valid nodes (i.e
     // the nodes that are on the board) are in [1, board_size]
-    for(unsigned int row{1}; row < board_size+1; ++row) {
-       for(unsigned int column{1}; column < board_size+1; ++column) {
-	 unsigned int node_id{row*(board_size+2) + column};
-	 unsigned int neighbor_id;
-	 unsigned int neighbor_row;
-	 unsigned int neighbor_col;
-	 for(int row_offset{0}; row_offset < 2; ++row_offset) {
-	   for(int col_offset{-1}; col_offset < 2; ++col_offset) {
-	     // Get the row and column of the surrounding nodes
-	     if(row_offset == col_offset)
-	       continue;
-	     neighbor_row = row + row_offset;
-	     neighbor_col = column + col_offset;
-	     neighbor_id = neighbor_row*(board_size+2) + neighbor_col;
-	     if(neighbor_id == node_id - 1)
-	       continue;//This edge was already added
-	     if(is_on_board(neighbor_id)) {
-	       // The neighbor node is on the board so we can add an edge
-	       graph.add_edge(nodes[node_id], nodes[neighbor_id], 1);
-	       //std::cout << "Add edge between node " << node_id;
-	       //std::cout << " and node " << neighbor_id << std::endl;
-	     }
-	   }
-	 }
+    for (unsigned int row{1}; row < board_size + 1; ++row)
+    {
+      for (unsigned int column{1}; column < board_size + 1; ++column)
+      {
+        unsigned int node_id{row * (board_size + 2) + column};
+        unsigned int neighbor_id;
+        unsigned int neighbor_row;
+        unsigned int neighbor_col;
+        for (int row_offset{0}; row_offset < 2; ++row_offset)
+        {
+          for (int col_offset{-1}; col_offset < 2; ++col_offset)
+          {
+            // Get the row and column of the surrounding nodes
+            if (row_offset == col_offset) continue;
+            neighbor_row = row + row_offset;
+            neighbor_col = column + col_offset;
+            neighbor_id = neighbor_row * (board_size + 2) + neighbor_col;
+            if (neighbor_id == node_id - 1) continue;  // This edge was already added
+            if (is_on_board(neighbor_id))
+            {
+              // The neighbor node is on the board so we can add an edge
+              graph.add_edge(nodes[node_id], nodes[neighbor_id], 1);
+              // std::cout << "Add edge between node " << node_id;
+              // std::cout << " and node " << neighbor_id << std::endl;
+            }
+          }
+        }
       }
-    }    
+    }
   }
 
-  void copy_graph(const ColoredGraph<EdgeColor>& graph_to_copy) {
+  void copy_graph(const ColoredGraph<EdgeColor>& graph_to_copy)
+  {
     build_graph();
     graph.set_edges_colors(graph_to_copy.get_edges_colors());
   }
-  
+
   // Helper function to represent the board's cells
-  char get_node_char(unsigned int row, unsigned int column) {
-    unsigned int node_id{row*(board_size+2) + column};
+  char get_node_char(unsigned int row, unsigned int column)
+  {
+    unsigned int node_id{row * (board_size + 2) + column};
     NodeValue node_value{static_cast<NodeValue>(nodes[node_id].value)};
     char ret;
     PlayersColors players_colors;
-    switch(node_value) {
-    case NodeValue::AVAILABLE:
-      ret = '.';
-      break;
-    case NodeValue::B:
-      ret = players_colors[node_value];
-      break;
-    case NodeValue::R:
-      ret = players_colors[node_value];
-      break;
-    default:
-      throw std::runtime_error{"Unknown node value"};
+    switch (node_value)
+    {
+      case NodeValue::AVAILABLE:
+        ret = '.';
+        break;
+      case NodeValue::B:
+        ret = players_colors[node_value];
+        break;
+      case NodeValue::R:
+        ret = players_colors[node_value];
+        break;
+      default:
+        throw std::runtime_error{"Unknown node value"};
     }
     return ret;
   }
 
-  void set_node_value(unsigned int node_id, NodeValue value) {
+  void set_node_value(unsigned int node_id, NodeValue value)
+  {
     nodes[node_id].value = static_cast<double>(value);
   }
 
@@ -794,76 +819,73 @@ private:
    * between adjacent cells owned by the same player (either Blue or Red) can
    * be colored.
    * e.g. for a 3x3 board:
-   *  . - . - B                                    . - . - B 
+   *  . - . - B                                    . - . - B
    *   \ / \ / \                                    \ / \ / \
-   *    B - . - .   -> Blue Selects cell (1,1) =>    B - B - . 
-   *     \ / \ / \                                    \ / \ / \  
-   *      . - . - .                                    . - . - .    
+   *    B - . - .   -> Blue Selects cell (1,1) =>    B - B - .
+   *     \ / \ / \                                    \ / \ / \
+   *      . - . - .                                    . - . - .
    *
    *  => Edge between node (1, 0) and node (1, 1) and edge between node (1, 1)
    *  and node (0, 2) are given the color Blue.
    */
-  void color_edges(unsigned int node_id,
-		   unsigned int player_id) {
-
+  void color_edges(unsigned int node_id, unsigned int player_id)
+  {
     std::vector<std::pair<unsigned int, double>> neighbors;
     graph.get_neighbors(node_id, neighbors);
-    
+
     unsigned int board_cell_idx;
 
-    /* 
+    /*
      * Get the node index for the Union-Find object
      * Basically, from the node's id the row (from 1 to board's size) and the
      * column (from 1 to board's size) are re-constructed. Then the index of
      * the node in the Union-Find array is computed (remember: index for real
      * nodes are in range 1 to (board's size)^2.)
      */
-    unsigned int board_row = node_id / (board_size + 2);
-    unsigned int board_col = node_id - (board_row * (board_size + 2));
-    board_cell_idx = (board_row - 1) * board_size + board_col;
-    
-    if (player_id == blue_player) {
-      if (board_col == 1)
-	players_uf[player_id].merge(board_cell_idx, 0);
-      else if (board_col == board_size)
-	players_uf[player_id].merge(board_cell_idx, board_size*board_size + 1);
-    } else {
-      if (board_row == 1)
-	players_uf[player_id].merge(board_cell_idx, 0);
-      else if (board_row == board_size)
-	players_uf[player_id].merge(board_cell_idx, board_size*board_size + 1);
-    }
-    
-    for(auto neighbor: neighbors) {
+    unsigned int board_row = node_id / (board_size + 2) - 1;
+    unsigned int board_col = node_id - ((board_row + 1) * (board_size + 2)) - 1;
+    board_cell_idx = board_row * board_size + board_col;
+
+    if (player_id == blue_player)
+      players_uf[player_id].merge(board_cell_idx, 0);
+    else if (board_col == board_size - 1)
+      players_uf[player_id].merge(board_cell_idx, board_size * board_size + 1);
+    else if (board_row == 0)
+      players_uf[player_id].merge(board_cell_idx, 0);
+    else if (board_row == board_size - 1)
+      players_uf[player_id].merge(board_cell_idx, board_size * board_size + 1);
+
+    for (auto neighbor : neighbors)
+    {
       unsigned int neighbor_id{neighbor.first};
-      if(nodes[neighbor_id].value == static_cast<double>(player_id)) {
-	// The adjacent node belongs to the same player
-	// Color the edge
-       EdgeColor color{static_cast<EdgeColor>(player_id)};
-       graph.set_edge_color(nodes[node_id], nodes[neighbor_id], color);
-       // The 2 nodes belongs to the same subset
-       unsigned int board_row = neighbor_id / (board_size + 2);
-       unsigned int board_col = neighbor_id - (board_row * (board_size + 2));
-       unsigned int board_ncell_idx = (board_row - 1) * board_size + board_col;
-       players_uf[player_id].merge(board_cell_idx, board_ncell_idx);
+      if (nodes[neighbor_id].value == static_cast<double>(player_id))
+      {
+        // The adjacent node belongs to the same player
+        // Color the edge
+        EdgeColor color{static_cast<EdgeColor>(player_id)};
+        graph.set_edge_color(nodes[node_id], nodes[neighbor_id], color);
+        // The 2 nodes belongs to the same subset
+        unsigned int board_row = neighbor_id / (board_size + 2) - 1;
+        unsigned int board_col = neighbor_id - ((board_row + 1) * (board_size + 2)) - 1;
+        unsigned int board_ncell_idx = board_row * board_size + board_col;
+        players_uf[player_id].merge(board_cell_idx, board_ncell_idx);
       }
     }
-    
   }
 
-  void uncolor_edges(unsigned int node_id) {
-    //std::cout << "node id " << node_id << std::endl;
+  void uncolor_edges(unsigned int node_id)
+  {
+    // std::cout << "node id " << node_id << std::endl;
     std::vector<std::pair<unsigned int, double>> neighbors;
 
     graph.get_neighbors(node_id, neighbors);
-    for(auto neighbor: neighbors) {
+    for (auto neighbor : neighbors)
+    {
       unsigned int neighbor_id{neighbor.first};
       // Uncolor the edge
       graph.set_edge_color(nodes[node_id], nodes[neighbor_id], EdgeColor::Any);
     }
   }
-
 };
 
-
-#endif //HEX_BOARD_H
+#endif  // HEX_BOARD_H
