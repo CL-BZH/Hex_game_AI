@@ -6,57 +6,6 @@
 #include "hex_board.h"
 #include "hex_machine_engine.h"
 
-class AtomicDouble
-{
-private:
-  std::atomic<uint64_t> bits;
-
-  static uint64_t double_to_bits(double d)
-  {
-    uint64_t b;
-    std::memcpy(&b, &d, sizeof(double));
-    return b;
-  }
-
-  static double bits_to_double(uint64_t b)
-  {
-    double d;
-    std::memcpy(&d, &b, sizeof(double));
-    return d;
-  }
-
-public:
-  AtomicDouble() : bits(0)
-  {
-  }
-  explicit AtomicDouble(double d) : bits(double_to_bits(d))
-  {
-  }
-
-  double load() const
-  {
-    return bits_to_double(bits.load(std::memory_order_relaxed));
-  }
-
-  void store(double d)
-  {
-    bits.store(double_to_bits(d), std::memory_order_relaxed);
-  }
-
-  void add(double d)
-  {
-    uint64_t old_bits = bits.load(std::memory_order_relaxed);
-    uint64_t new_bits;
-    do
-    {
-      double old_val = bits_to_double(old_bits);
-      double new_val = old_val + d;
-      new_bits = double_to_bits(new_val);
-    } while (!bits.compare_exchange_weak(old_bits, new_bits, std::memory_order_relaxed,
-                                         std::memory_order_relaxed));
-  }
-};
-
 // MCTS Node representing a game state
 struct MCTSNode
 {
@@ -195,8 +144,14 @@ struct HexMachineMCTS : HexMachineEngine
   void get_position(HexBoard& board, unsigned int& board_row, unsigned int& board_column,
                     unsigned int machine_player_id) override
   {
+    // Start chrono
+    auto start{std::chrono::high_resolution_clock::now()};
+
     // Check for immediate winning move
-    if (find_winning_move(board, board_row, board_column, machine_player_id)) return;
+    if (board.get_nb_selected_cells() >= 2 * (board_size - 1) + machine_player_id)
+    {
+      if (find_winning_move(board, board_row, board_column, machine_player_id)) return;
+    }
 
     // Calculate iterations for this position
     unsigned int iterations = calculate_iterations(board);
@@ -208,9 +163,6 @@ struct HexMachineMCTS : HexMachineEngine
                 << " iterations in " << threads << " threads" << std::endl;
     }
 #endif
-
-    // Start chrono
-    auto start{std::chrono::high_resolution_clock::now()};
 
     // Create main root node
     root = std::make_unique<MCTSNode>(0, 0, machine_player_id, nullptr);
@@ -285,7 +237,7 @@ private:
   // Calculate number of iterations based on game state
   unsigned int calculate_iterations(const HexBoard& board) const
   {
-    unsigned int available = board.nb_available_cells();
+    unsigned int available = board.get_nb_available_cells();
     unsigned int total = board_size * board_size;
 
     // More iterations early game, fewer late game
@@ -315,7 +267,7 @@ private:
       return false;
     }
 
-    std::unique_ptr<HexBoard> board_copy{new HexBoard(board)};
+    HexBoard board_copy{board};
 
     for (size_t i = 0; i < available_size; ++i)
     {
@@ -324,7 +276,7 @@ private:
       unsigned int node_row{pos[0]};
       unsigned int node_col{pos[1]};
 
-      if (board_copy->select(node_row, node_col, player_id, game_end, false))
+      if (board_copy.select(node_row, node_col, player_id, game_end, false))
       {
         if (game_end)
         {
@@ -332,8 +284,7 @@ private:
           col = node_col;
           return true;
         }
-        unsigned int node_id = (node_row + 1) * (board_size + 2) + (node_col + 1);
-        board_copy->release_board_node(node_id);
+        board_copy.release_board_node(node_row, node_col);
       }
     }
     return false;
@@ -585,7 +536,7 @@ private:
     {
       std::stringstream err;
       err << "Started simulate with available empty! ";
-      err << "nb_available_cells() = " << board.nb_available_cells() << std::endl;
+      err << "nb_available_cells() = " << board.get_nb_available_cells() << std::endl;
       throw std::runtime_error{err.str()};
     }
 

@@ -192,7 +192,7 @@ void play_game(unsigned int board_size, unsigned int nb_human_player, unsigned i
     if (nb_human_player == 1)
     {
       // Machine against Human
-      HexMachineMCTS machine(board_size, threads);
+      HexMachineMcIA machine(board_size, threads);
       Hex hex(&board, nb_human_player, &machine, nullptr, quiet_mode);
     }
     else

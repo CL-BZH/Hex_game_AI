@@ -180,8 +180,6 @@ private:
     {
       engine->get_position(*board_ptr, row, col, machine_color);
 
-      // std::cout << PlayersColors::color(machine_color)
-      //	  <<" machine wants: " << row << ", " << col << std::endl;
       position_is_selected = board_ptr->select(row, col, machine_color, game_end, true);
     }
   }
@@ -303,7 +301,7 @@ private:
           for (auto node : board_ptr->get_path()->route)
           {
             unsigned int row, col;
-            if (board_ptr->get_onboard_row_column(node.id, row, col) == 0)
+            if (board_ptr->get_onboard_row_column(node.id, row, col))
               std::cout << " (" << row << ", " << col << ") ->";
             else
             {

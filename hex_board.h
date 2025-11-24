@@ -67,7 +67,9 @@ struct HexBoard
       : board_size(size),
         board_cells(size * size),
         graph_size{(size + 2) * (size + 2)},
-        graph{graph_size, EdgeColor::Any}
+        graph{graph_size, EdgeColor::Any},
+        players_uf{UnionFind(std::vector<unsigned int>{}), UnionFind(std::vector<unsigned int>{})}
+        // Temporary initialization
   {
     if (size < min_board_size)
     {
@@ -97,8 +99,10 @@ struct HexBoard
      * (respectively the North border) and node at index size^2 + 1 represents
      * the East border (repectively the South border).
      */
-    players_uf[0] = UnionFind(size * size + 2);
-    players_uf[1] = UnionFind(size * size + 2);
+    std::vector<unsigned int> uf_nodes;
+    get_uf_nodes(uf_nodes);
+    players_uf[0] = UnionFind(uf_nodes);
+    players_uf[1] = UnionFind(uf_nodes);
   }
 
   // Copy constructor
@@ -107,7 +111,10 @@ struct HexBoard
         board_cells{rhs.board_cells},
         graph_size{rhs.graph_size},
         nb_selected_cells{rhs.nb_selected_cells},
-        graph{graph_size, EdgeColor::Any}
+        graph{graph_size, EdgeColor::Any},
+        second_virtual_node{rhs.second_virtual_node},
+        ui{rhs.ui},
+        players_uf{rhs.players_uf[0], rhs.players_uf[1]}
   {
     // Copy the nodes vector
     nodes = rhs.nodes;
@@ -116,8 +123,10 @@ struct HexBoard
     copy_graph(rhs.graph);
 
     // Get own Union-Find objects
-    players_uf[0] = UnionFind(rhs.board_size * rhs.board_size + 2);
-    players_uf[1] = UnionFind(rhs.board_size * rhs.board_size + 2);
+    // std::vector<unsigned int> uf_nodes;
+    // get_uf_nodes(uf_nodes);
+    // players_uf[0] = UnionFind(uf_nodes);
+    // players_uf[1] = UnionFind(uf_nodes);
   }
 
   void release_board_node(unsigned int node_id)
@@ -185,13 +194,10 @@ struct HexBoard
         node_id = node_row * (board_size + 2) + node_column;
         if (is_node_available(node_id))
         {
-          // std::cout << "Available: " << node_id << std::endl;
           available_nodes_ids.push_back(node_id);
         }
       }
     }
-
-    // std::cout << "Available nodes: " << available_nodes_ids.size() << std::endl;
 
     for (auto node_id : available_nodes_ids)
     {
@@ -204,7 +210,6 @@ struct HexBoard
       // Check if it is possible to color some edges
       color_edges(node_id, player_id);
     }
-    // draw_board();
   }
 
   void rand_fill_board(unsigned int first_player_id, std::mt19937& gen,
@@ -220,13 +225,10 @@ struct HexBoard
         node_id = node_row * (board_size + 2) + node_column;
         if (is_node_available(node_id))
         {
-          // std::cout << "Available: " << node_id << std::endl;
           available_nodes_ids.push_back(node_id);
         }
       }
     }
-
-    // std::cout << "Available nodes: " << available_nodes_ids.size() << std::endl;
 
     // Shuffle available node_id
     std::shuffle(std::begin(available_nodes_ids), std::end(available_nodes_ids), gen);
@@ -252,6 +254,9 @@ struct HexBoard
 
   // Select a position on the board.
   // Returns 'true' if a valid position was selected (false otherwise)
+  // The parameter 'draw' tells us if the function is called for the real selection
+  // of a cell on the board (by a player (human or machine) in which case it is set
+  // to true or if the function is called in the selection process of a best cell.
   bool select(unsigned int board_row, unsigned int board_column, unsigned int player_id,
               bool& game_end, bool draw = false, std::stringstream* err = nullptr)
   {
@@ -295,8 +300,37 @@ struct HexBoard
     // Increase by 1 the total number of selected cells
     ++nb_selected_cells;
 
-    if (nb_selected_cells >= (2 * board_size - 1)) game_end = has_won(player_id, &path);
-
+    if (nb_selected_cells >= (2 * board_size - 1))
+    {
+      if (!draw)
+      {
+        // Path compression
+        unsigned int root_0{players_uf[player_id].find(first_virtual_node)};
+        unsigned int root_max{players_uf[player_id].find(second_virtual_node)};
+        if (root_0 == root_max) game_end = true;
+#ifdef _DEBUG
+        // Let's check that Union-Find and has_won agree
+        bool game_over = has_won(player_id, &path);
+        if (game_end != game_over)
+        {
+          players_uf[player_id].draw();
+          draw_board();
+          std::stringstream err;
+          err << std::endl;
+          err << "Player: " << player_id << ", select node_id: " << node_id;
+          err << ", board row: " << board_row << ", board column: " << board_column << std::endl;
+          err << "root: " << root_0;
+          err << ", UnionFind game_end = " << game_end << ", Path game_end = " << game_over
+              << std::endl;
+          throw std::runtime_error{err.str()};
+#endif
+        }
+      }
+      else
+      {
+        game_end = has_won(player_id, &path);
+      }
+    }
     // Position selected = true
     return true;
   }
@@ -428,7 +462,12 @@ struct HexBoard
     return (nb_selected_cells == 0);
   }
 
-  unsigned int nb_available_cells() const
+  unsigned int get_nb_selected_cells() const
+  {
+    return nb_selected_cells;
+  }
+
+  unsigned int get_nb_available_cells() const
   {
     return board_cells - nb_selected_cells;
   }
@@ -436,7 +475,7 @@ struct HexBoard
   // Get the percentage of available cells on the board
   double percentage_available_cells() const
   {
-    return (static_cast<double>(nb_available_cells())) / board_cells;
+    return (static_cast<double>(get_nb_available_cells())) / board_cells;
   }
 
   // Get the first cell availalable starting from a given row and column
@@ -627,7 +666,7 @@ struct HexBoard
   }
 
   // Get node's value (i.e. Red, Blue, Available, Outside)
-  NodeValue get_node_value(unsigned int node_id)
+  NodeValue get_node_value(unsigned int node_id) const
   {
     return static_cast<NodeValue>(nodes[node_id].value);
   }
@@ -643,13 +682,18 @@ struct HexBoard
   }
 
   // Get the onboard row and column for node inside the board.
-  // Return -1 if the node is outside the board else 0.
+  // Return false if the node is outside the board else true.
   bool get_onboard_row_column(unsigned int node_id, unsigned int& row, unsigned int& col)
   {
-    if (nodes[node_id].value == static_cast<double>(NodeValue::OUTSIDE)) return -1;
+    if (nodes[node_id].value == static_cast<double>(NodeValue::OUTSIDE)) return false;
     row = node_id / (board_size + 2) - 1;
     col = node_id - (row + 1) * (board_size + 2) - 1;
-    return 0;
+    return true;
+  }
+
+  unsigned int get_board_size() const
+  {
+    return board_size;
   }
 
 private:
@@ -696,6 +740,8 @@ private:
 
   // Object for the Union-Find Algo. Each player has its subsets.
   UnionFind players_uf[2];
+  unsigned int first_virtual_node{0};
+  unsigned int second_virtual_node{std::numeric_limits<unsigned int>::infinity()};
 
   // Initialization of the graph's node
   // All nodes representing cells on the board are marked AVAILABLE.
@@ -719,6 +765,26 @@ private:
           nodes[node_id].value = static_cast<double>(NodeValue::AVAILABLE);
       }
     }
+  }
+
+  void get_uf_nodes(std::vector<unsigned int>& uf_nodes)
+  {
+    unsigned int node_id{first_virtual_node};
+
+    // First virtual nodes
+    uf_nodes.push_back(node_id);
+
+    for (unsigned int node_row = 1; node_row < board_size + 1; ++node_row)
+    {
+      for (unsigned int node_column = 1; node_column < board_size + 1; ++node_column)
+      {
+        node_id = node_row * (board_size + 2) + node_column;
+        uf_nodes.push_back(node_id);
+      }
+    }
+    // Second virtual nodes
+    second_virtual_node = node_id + 1;
+    uf_nodes.push_back(second_virtual_node);
   }
 
   // Tell if a node is available
@@ -770,8 +836,6 @@ private:
             {
               // The neighbor node is on the board so we can add an edge
               graph.add_edge(nodes[node_id], nodes[neighbor_id], 1);
-              // std::cout << "Add edge between node " << node_id;
-              // std::cout << " and node " << neighbor_id << std::endl;
             }
           }
         }
@@ -830,58 +894,85 @@ private:
    */
   void color_edges(unsigned int node_id, unsigned int player_id)
   {
+    if (!is_on_board(node_id))
+    {
+      std::stringstream err;
+      err << "color_edges(" << node_id << " <- not on board)" << std::endl;
+      throw std::runtime_error{err.str()};
+    }
+
     std::vector<std::pair<unsigned int, double>> neighbors;
     graph.get_neighbors(node_id, neighbors);
 
-    unsigned int board_cell_idx;
-
-    /*
-     * Get the node index for the Union-Find object
-     * Basically, from the node's id the row (from 1 to board's size) and the
-     * column (from 1 to board's size) are re-constructed. Then the index of
-     * the node in the Union-Find array is computed (remember: index for real
-     * nodes are in range 1 to (board's size)^2.)
-     */
-    unsigned int board_row = node_id / (board_size + 2) - 1;
-    unsigned int board_col = node_id - ((board_row + 1) * (board_size + 2)) - 1;
-    board_cell_idx = board_row * board_size + board_col;
+    unsigned int board_row;
+    unsigned int board_col;
+    if (!get_onboard_row_column(node_id, board_row, board_col))
+      throw std::runtime_error{"node outside the board"};
 
     if (player_id == blue_player)
-      players_uf[player_id].merge(board_cell_idx, 0);
-    else if (board_col == board_size - 1)
-      players_uf[player_id].merge(board_cell_idx, board_size * board_size + 1);
-    else if (board_row == 0)
-      players_uf[player_id].merge(board_cell_idx, 0);
-    else if (board_row == board_size - 1)
-      players_uf[player_id].merge(board_cell_idx, board_size * board_size + 1);
+    {
+      if (board_col == 0)
+        players_uf[player_id].merge(node_id, first_virtual_node);
+      else if (board_col == board_size - 1)
+        players_uf[player_id].merge(node_id, second_virtual_node);
+    }
+    else
+    {
+      if (board_row == 0)
+        players_uf[player_id].merge(node_id, first_virtual_node);
+      else if (board_row == board_size - 1)
+        players_uf[player_id].merge(node_id, second_virtual_node);
+    }
 
     for (auto neighbor : neighbors)
     {
       unsigned int neighbor_id{neighbor.first};
+
+      if (!is_on_board(neighbor_id))
+      {
+        std::stringstream err;
+        err << "color_edges(" << node_id << ") neighbor_id: " << neighbor_id << " not on board"
+            << std::endl;
+        throw std::runtime_error{err.str()};
+      }
+
+      // if (nodes[neighbor_id].value == static_cast<double>(NodeValue::OUTSIDE))
+      //   throw std::runtime_error{"neighbor outside the board"};
+
       if (nodes[neighbor_id].value == static_cast<double>(player_id))
       {
         // The adjacent node belongs to the same player
         // Color the edge
         EdgeColor color{static_cast<EdgeColor>(player_id)};
         graph.set_edge_color(nodes[node_id], nodes[neighbor_id], color);
-        // The 2 nodes belongs to the same subset
-        unsigned int board_row = neighbor_id / (board_size + 2) - 1;
-        unsigned int board_col = neighbor_id - ((board_row + 1) * (board_size + 2)) - 1;
-        unsigned int board_ncell_idx = board_row * board_size + board_col;
-        players_uf[player_id].merge(board_cell_idx, board_ncell_idx);
+        players_uf[player_id].merge(node_id, neighbor_id);
       }
     }
   }
 
   void uncolor_edges(unsigned int node_id)
   {
-    // std::cout << "node id " << node_id << std::endl;
+    if (!is_on_board(node_id))
+    {
+      std::stringstream err;
+      err << "uncolor_edges(" << node_id << " <- not on board)" << std::endl;
+      throw std::runtime_error{err.str()};
+    }
+
     std::vector<std::pair<unsigned int, double>> neighbors;
 
     graph.get_neighbors(node_id, neighbors);
     for (auto neighbor : neighbors)
     {
       unsigned int neighbor_id{neighbor.first};
+      if (!is_on_board(neighbor_id))
+      {
+        std::stringstream err;
+        err << "uncolor_edges(" << node_id << ") neighbor_id: " << neighbor_id << " not on board"
+            << std::endl;
+        throw std::runtime_error{err.str()};
+      }
+
       // Uncolor the edge
       graph.set_edge_color(nodes[node_id], nodes[neighbor_id], EdgeColor::Any);
     }

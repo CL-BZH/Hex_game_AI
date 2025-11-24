@@ -24,7 +24,7 @@ struct HexMachineMcIA : HexMachineEngine
 #ifdef _BF_SUP
     // If the number of available cells on the board is less than
     // the limit sup then use brute-force
-    if (board.nb_available_cells() < _BF_SUP)
+    if (board.get_nb_available_cells() < _BF_SUP)
     {
       brute_force_machine.get_position(board, board_row, board_column, machine_player_id);
       return;
@@ -84,9 +84,12 @@ struct HexMachineMcIA : HexMachineEngine
 
       while (current_board_column < board_size)
       {
+        // Copy of the board to work on
+        HexBoard board_copy(board);
+
         // * Selecting the position
-        got_position = board.get_first_available_position(current_board_row, current_board_column,
-                                                          machine_player_id, game_end);
+        got_position = board_copy.get_first_available_position(
+            current_board_row, current_board_column, machine_player_id, game_end);
 
         // We went through all the board
         if (!got_position)
@@ -116,7 +119,7 @@ struct HexMachineMcIA : HexMachineEngine
           board_column = current_board_column;
           // Release the selected position for it to be selected by
           // select() in machine_play()
-          board.release_board_node(selected_node_id);
+          board_copy.release_board_node(selected_node_id);
           return;
         }
 
@@ -128,10 +131,8 @@ struct HexMachineMcIA : HexMachineEngine
         // * Filling the remaining positions on the board by randomly
         //   distributing the blue and red cells. i.e. Run Monte-Carlo simulation
         //   (see mc_task()) for this position in multiple threads.
-        spawn_threads(runs, threads, selected_node_id, machine_player_id, board);
-
-        // Release the selected candidate position
-        board.release_board_node(selected_node_id);
+        HexBoard board_tmp(board_copy);
+        spawn_threads(runs, threads, selected_node_id, machine_player_id, board_tmp);
 
         // Update the average quality for the position from the quality that
         // each thread computed (see mc_task())
@@ -215,7 +216,7 @@ struct HexMachineMcIA : HexMachineEngine
     // When there is a bit less available cells (i.e. less possible states) then
     // the maximum number of run is used.
     const double center{static_cast<double>(7 * total_cells / 8)};
-    double available_cells{static_cast<double>(board.nb_available_cells())};
+    double available_cells{static_cast<double>(board.get_nb_available_cells())};
 
     const double sigma_square{1.0 * total_cells};
 

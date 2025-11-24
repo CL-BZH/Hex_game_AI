@@ -24,7 +24,59 @@ enum class MachineType
   BruteForce,
   MonteCarlo,
   MCTS,
+  MCTS_TT,
   Undefined
+};
+
+class AtomicDouble
+{
+private:
+  std::atomic<uint64_t> bits;
+
+  static uint64_t double_to_bits(double d)
+  {
+    uint64_t b;
+    std::memcpy(&b, &d, sizeof(double));
+    return b;
+  }
+
+  static double bits_to_double(uint64_t b)
+  {
+    double d;
+    std::memcpy(&d, &b, sizeof(double));
+    return d;
+  }
+
+public:
+  AtomicDouble() : bits(0)
+  {
+  }
+  explicit AtomicDouble(double d) : bits(double_to_bits(d))
+  {
+  }
+
+  double load() const
+  {
+    return bits_to_double(bits.load(std::memory_order_relaxed));
+  }
+
+  void store(double d)
+  {
+    bits.store(double_to_bits(d), std::memory_order_relaxed);
+  }
+
+  void add(double d)
+  {
+    uint64_t old_bits = bits.load(std::memory_order_relaxed);
+    uint64_t new_bits;
+    do
+    {
+      double old_val = bits_to_double(old_bits);
+      double new_val = old_val + d;
+      new_bits = double_to_bits(new_val);
+    } while (!bits.compare_exchange_weak(old_bits, new_bits, std::memory_order_relaxed,
+                                         std::memory_order_relaxed));
+  }
 };
 
 // A position on the board with it associated quality

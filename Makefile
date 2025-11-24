@@ -12,6 +12,9 @@ CXX = g++
 CXXFLAGS = -Wall -pthread -Wno-reorder -std=c++20
 #CXXFLAGS = -Wall -pthread -Wno-reorder -std=c++20 -g
 
+# For debug code
+CPPFLAGS += -D_DEBUG
+
 # For printing the connections between nodes (when _PRINT_MATRIX is not defined)
 #CPPFLAGS += -D_SHOW_EDGES
 
