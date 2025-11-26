@@ -15,15 +15,20 @@
 #include "shortestpath.h"
 #include "unionfind.h"
 
+using uint = unsigned int;
+
+// Forward declaration instead
+struct Hex;
+
 // Maximun number of players
-const unsigned int max_players{2};
+const uint max_players{2};
 
 // Players IDs
-const unsigned int blue_player{0};
-const unsigned int red_player{1};
+const uint blue_player{0};
+const uint red_player{1};
 
 // Four type of cells on the board
-enum class NodeValue : unsigned int
+enum class NodeValue : uint
 {
   B = blue_player,  // Defines a node already selected by the Blue player
   R = red_player,   // Defines a node already selected by the Red player
@@ -36,7 +41,7 @@ struct PlayersColors
   // colors[blue_player] = "Blue", colors[red_player] = "Red"
   static const std::string colors[max_players];
 
-  static const std::string color(unsigned int player)
+  static const std::string color(uint player)
   {
     return colors[player];
   }
@@ -46,7 +51,7 @@ struct PlayersColors
   {
     return (*this)[static_cast<int>(node_value)];
   }
-  char operator[](unsigned int player_id) const
+  char operator[](uint player_id) const
   {
     if (!((player_id == blue_player) || (player_id == red_player)))
     {
@@ -58,18 +63,22 @@ struct PlayersColors
 
 const std::string PlayersColors::colors[]{"Blue", "Red"};
 
-const unsigned int min_board_size{3};
-const unsigned int max_board_size{99};  // This is very unrealistic...
+const uint min_board_size{3};
+const uint max_board_size{99};  // This is very unrealistic...
 
 struct HexBoard
 {
-  HexBoard(unsigned int size = 11)
-      : board_size(size),
+  HexBoard(uint size = 11)
+      : board_id(++next_board_id),  // Initialize with unique ID
+        board_size(size),
         board_cells(size * size),
         graph_size{(size + 2) * (size + 2)},
         graph{graph_size, EdgeColor::Any},
-        players_uf{UnionFind(std::vector<unsigned int>{}), UnionFind(std::vector<unsigned int>{})}
-        // Temporary initialization
+        players_uf{UnionFind(std::vector<uint>{}),
+                   UnionFind(std::vector<uint>{})},
+        players_uf_backup{UnionFind(std::vector<uint>{}),
+                          UnionFind(std::vector<uint>{})}
+  // Temporary initialization
   {
     if (size < min_board_size)
     {
@@ -99,7 +108,7 @@ struct HexBoard
      * (respectively the North border) and node at index size^2 + 1 represents
      * the East border (repectively the South border).
      */
-    std::vector<unsigned int> uf_nodes;
+    std::vector<uint> uf_nodes;
     get_uf_nodes(uf_nodes);
     players_uf[0] = UnionFind(uf_nodes);
     players_uf[1] = UnionFind(uf_nodes);
@@ -107,14 +116,16 @@ struct HexBoard
 
   // Copy constructor
   HexBoard(const HexBoard& rhs)
-      : board_size{rhs.board_size},
+      : board_id(++next_board_id),  // NEW unique ID for copy
+        board_size{rhs.board_size},
         board_cells{rhs.board_cells},
         graph_size{rhs.graph_size},
         nb_selected_cells{rhs.nb_selected_cells},
         graph{graph_size, EdgeColor::Any},
         second_virtual_node{rhs.second_virtual_node},
         ui{rhs.ui},
-        players_uf{rhs.players_uf[0], rhs.players_uf[1]}
+        players_uf{rhs.players_uf[0], rhs.players_uf[1]},
+        players_uf_backup{rhs.players_uf_backup[0], rhs.players_uf_backup[1]}
   {
     // Copy the nodes vector
     nodes = rhs.nodes;
@@ -122,14 +133,10 @@ struct HexBoard
     // Copy the original graph in this one
     copy_graph(rhs.graph);
 
-    // Get own Union-Find objects
-    // std::vector<unsigned int> uf_nodes;
-    // get_uf_nodes(uf_nodes);
-    // players_uf[0] = UnionFind(uf_nodes);
-    // players_uf[1] = UnionFind(uf_nodes);
+    owner_hex = rhs.owner_hex;
   }
 
-  void release_board_node(unsigned int node_id)
+  void release_board_node(uint node_id)
   {
     // Clear edges color
     uncolor_edges(node_id);
@@ -141,15 +148,15 @@ struct HexBoard
     --nb_selected_cells;
   }
 
-  void release_board_node(unsigned int board_row, unsigned int board_column)
+  void release_board_node(uint board_row, uint board_column)
   {
-    unsigned int node_row{board_row + 1};
-    unsigned int node_column{board_column + 1};
-    unsigned int node_id{node_row * (board_size + 2) + node_column};
+    uint node_row{board_row + 1};
+    uint node_column{board_column + 1};
+    uint node_id{node_row * (board_size + 2) + node_column};
     release_board_node(node_id);
   }
 
-  void release_board_nodes(std::vector<unsigned int>& nodes_ids)
+  void release_board_nodes(std::vector<uint>& nodes_ids)
   {
     for (auto node_id : nodes_ids)
     {
@@ -157,12 +164,12 @@ struct HexBoard
     }
   }
 
-  void fill_with_color(unsigned int player_id,
-                       const std::vector<std::array<unsigned int, 2>>& cells)
+  void fill_with_color(uint player_id,
+                       const std::vector<std::array<uint, 2>>& cells)
   {
-    unsigned int node_row;
-    unsigned int node_column;
-    unsigned int node_id;
+    uint node_row;
+    uint node_column;
+    uint node_id;
 
     for (auto cell : cells)
     {
@@ -181,15 +188,15 @@ struct HexBoard
     // draw_board();
   }
 
-  void complete_with_color(unsigned int player_id)
+  void complete_with_color(uint player_id)
   {
-    unsigned int node_id;
-    std::vector<unsigned int> available_nodes_ids;
+    uint node_id;
+    std::vector<uint> available_nodes_ids;
 
     // Get index of all available positions
-    for (unsigned int node_row{1}; node_row < board_size + 1; ++node_row)
+    for (uint node_row{1}; node_row < board_size + 1; ++node_row)
     {
-      for (unsigned int node_column{1}; node_column < board_size + 2; ++node_column)
+      for (uint node_column{1}; node_column < board_size + 2; ++node_column)
       {
         node_id = node_row * (board_size + 2) + node_column;
         if (is_node_available(node_id))
@@ -212,15 +219,15 @@ struct HexBoard
     }
   }
 
-  void rand_fill_board(unsigned int first_player_id, std::mt19937& gen,
-                       std::vector<unsigned int>& available_nodes_ids)
+  void rand_fill_board(uint first_player_id, std::mt19937& gen,
+                       std::vector<uint>& available_nodes_ids)
   {
-    unsigned int node_id;
+    uint node_id;
 
     // Get index of all available positions
-    for (unsigned int node_row{1}; node_row < board_size + 1; ++node_row)
+    for (uint node_row{1}; node_row < board_size + 1; ++node_row)
     {
-      for (unsigned int node_column{1}; node_column < board_size + 2; ++node_column)
+      for (uint node_column{1}; node_column < board_size + 2; ++node_column)
       {
         node_id = node_row * (board_size + 2) + node_column;
         if (is_node_available(node_id))
@@ -231,9 +238,10 @@ struct HexBoard
     }
 
     // Shuffle available node_id
-    std::shuffle(std::begin(available_nodes_ids), std::end(available_nodes_ids), gen);
+    std::shuffle(std::begin(available_nodes_ids), std::end(available_nodes_ids),
+                 gen);
 
-    unsigned int player_id{first_player_id};
+    uint player_id{first_player_id};
 
     for (auto node_id : available_nodes_ids)
     {
@@ -254,29 +262,37 @@ struct HexBoard
 
   // Select a position on the board.
   // Returns 'true' if a valid position was selected (false otherwise)
-  // The parameter 'draw' tells us if the function is called for the real selection
-  // of a cell on the board (by a player (human or machine) in which case it is set
-  // to true or if the function is called in the selection process of a best cell.
-  bool select(unsigned int board_row, unsigned int board_column, unsigned int player_id,
-              bool& game_end, bool draw = false, std::stringstream* err = nullptr)
+  // The parameter 'draw' tells us if the function is called for the real
+  // selection of a cell on the board (by a player (human or machine) in which
+  // case it is set to true or if the function is called in the selection
+  // process of a best cell.
+  bool select(uint board_row, uint board_column, uint player_id, bool& game_end,
+              bool draw = false, std::stringstream* err = nullptr)
   {
-    if (game_end) throw std::runtime_error{"Cannot call select with game_end == true"};
+    if (game_end)
+      throw std::runtime_error{"Cannot call select with game_end == true"};
 
     if (!((player_id == blue_player) || (player_id == red_player)))
       throw std::runtime_error{"Invalid player's Id"};
 
     // Convert board's row and column to node row and column
     // (that is because I added a layer of 'OUTSIDE' nodes around the board)
-    unsigned int node_row{board_row + 1};
-    unsigned int node_column{board_column + 1};
-    unsigned int node_id{node_row * (board_size + 2) + node_column};
+    uint node_row{board_row + 1};
+    uint node_column{board_column + 1};
+    uint node_id{node_row * (board_size + 2) + node_column};
     NodeValue node_value;
 
-    if ((board_row >= board_size) || (board_column >= board_size) || (!is_on_board(node_id)))
+    if ((board_row >= board_size) || (board_column >= board_size) ||
+        (!is_on_board(node_id)))
     {
-      if (err != nullptr)
-        *err << "Not valid row " << board_row << " or column " << board_column << std::endl;
-      return false;
+      // if (err != nullptr)
+      //*err << "Not valid row " << board_row << " or column " << board_column
+      //<< std::endl;
+      // return false;
+      std::stringstream err;
+      err << "Not valid row " << board_row << " or column " << board_column
+          << std::endl;
+      throw std::runtime_error{err.str()};
     }
 
     node_value = static_cast<NodeValue>(nodes[node_id].value);
@@ -305,9 +321,10 @@ struct HexBoard
       if (!draw)
       {
         // Path compression
-        unsigned int root_0{players_uf[player_id].find(first_virtual_node)};
-        unsigned int root_max{players_uf[player_id].find(second_virtual_node)};
+        uint root_0{players_uf[player_id].find(first_virtual_node)};
+        uint root_max{players_uf[player_id].find(second_virtual_node)};
         if (root_0 == root_max) game_end = true;
+
 #ifdef _DEBUG
         // Let's check that Union-Find and has_won agree
         bool game_over = has_won(player_id, &path);
@@ -315,13 +332,40 @@ struct HexBoard
         {
           players_uf[player_id].draw();
           draw_board();
+
           std::stringstream err;
           err << std::endl;
-          err << "Player: " << player_id << ", select node_id: " << node_id;
-          err << ", board row: " << board_row << ", board column: " << board_column << std::endl;
+          err << "Board ID: " << board_id << std::endl;
+          err << "Player: " << player_id
+              << ", engine: " << get_player_machine_type(player_id)
+              << ", select node_id: " << node_id;
+          err << ", board row: " << board_row
+              << ", board column: " << board_column << std::endl;
           err << "root: " << root_0;
-          err << ", UnionFind game_end = " << game_end << ", Path game_end = " << game_over
+          err << ", UnionFind game_end = " << game_end
+              << ", Path game_end = " << game_over << std::endl;
+          err << "Union-Find components:" << std::endl;
+          err << "First virtual node (" << first_virtual_node
+              << ") root: " << players_uf[player_id].find(first_virtual_node)
               << std::endl;
+          err << "Second virtual node (" << second_virtual_node
+              << ") root: " << players_uf[player_id].find(second_virtual_node)
+              << std::endl;
+          err << "Selected node (" << node_id
+              << ") root: " << players_uf[player_id].find(node_id) << std::endl;
+
+          // Check if the selected node connects to both virtual nodes
+          bool connects_to_first =
+              (players_uf[player_id].find(node_id) ==
+               players_uf[player_id].find(first_virtual_node));
+          bool connects_to_second =
+              (players_uf[player_id].find(node_id) ==
+               players_uf[player_id].find(second_virtual_node));
+          err << "Node connects to first virtual: " << connects_to_first
+              << std::endl;
+          err << "Node connects to second virtual: " << connects_to_second
+              << std::endl;
+
           throw std::runtime_error{err.str()};
 #endif
         }
@@ -353,7 +397,7 @@ struct HexBoard
     std::stringstream ss;
 
     // Draw column indexes
-    for (unsigned int column{0}; column < board_size; ++column)
+    for (uint column{0}; column < board_size; ++column)
     {
       if (column < 10)
         ss << std::string(3, ' ') << column;
@@ -363,7 +407,7 @@ struct HexBoard
 
     ss << std::endl;
 
-    unsigned int row{1};
+    uint row{1};
 
     for (; row < board_size + 1; ++row)
     {
@@ -374,9 +418,9 @@ struct HexBoard
         ss << std::string(2 * row - 2, ' ') << row - 1 << std::string(1, ' ');
 
       // Draw the nodes' content ('.', 'R' or 'B') and West-East edges
-      for (unsigned int column{1}; column < board_size; ++column)
+      for (uint column{1}; column < board_size; ++column)
       {
-        unsigned int node_id{row * (board_size + 2) + column};
+        uint node_id{row * (board_size + 2) + column};
         char node_char{get_node_char(row, column)};
         if (route != nullptr)
         {
@@ -401,7 +445,7 @@ struct HexBoard
         ss << ' ';
       }
 
-      unsigned int node_id{row * (board_size + 2) + board_size};
+      uint node_id{row * (board_size + 2) + board_size};
       char node_char{get_node_char(row, board_size)};
       if (route != nullptr)
       {
@@ -423,7 +467,7 @@ struct HexBoard
       if (row == board_size) break;
       // Draw the North-South edges
       ss << std::string(2 * row + 2, ' ');
-      for (unsigned int column{1}; column < board_size; ++column)
+      for (uint column{1}; column < board_size; ++column)
       {
         ss << '\\';
         ss << " ";
@@ -436,7 +480,7 @@ struct HexBoard
 
     // Draw column indexes again at the bottom
     ss << std::string(2 * row - 1, ' ');
-    for (unsigned int column{0}; column < board_size; ++column)
+    for (uint column{0}; column < board_size; ++column)
     {
       if (column < 10)
         ss << std::string(3, ' ') << column;
@@ -462,12 +506,12 @@ struct HexBoard
     return (nb_selected_cells == 0);
   }
 
-  unsigned int get_nb_selected_cells() const
+  uint get_nb_selected_cells() const
   {
     return nb_selected_cells;
   }
 
-  unsigned int get_nb_available_cells() const
+  uint get_nb_available_cells() const
   {
     return board_cells - nb_selected_cells;
   }
@@ -479,8 +523,8 @@ struct HexBoard
   }
 
   // Get the first cell availalable starting from a given row and column
-  bool get_first_available_position(unsigned int& board_row, unsigned int& board_column,
-                                    unsigned int player_id, bool& game_end)
+  bool get_first_available_position(uint& board_row, uint& board_column,
+                                    uint player_id, bool& game_end)
   {
     for (; board_row < board_size; ++board_row)
     {
@@ -496,11 +540,11 @@ struct HexBoard
     return false;
   }
 
-  void get_all_available_position(std::vector<std::array<unsigned int, 2>>& positions)
+  void get_all_available_position(std::vector<std::array<uint, 2>>& positions)
   {
     bool game_end{false};
-    unsigned int board_row{0};
-    unsigned int board_column{0};
+    uint board_row{0};
+    uint board_column{0};
 
     for (; board_row < board_size; ++board_row)
     {
@@ -531,7 +575,7 @@ struct HexBoard
    * other (of course if there is a path from West to East there cannot be a
    * path from North to South and vice-versa).
    */
-  bool has_won(unsigned int player, Path* path = nullptr, double* quality = nullptr)
+  bool has_won(uint player, Path* path = nullptr, double* quality = nullptr)
   {
     EdgeColor color{static_cast<EdgeColor>(player)};
 
@@ -544,10 +588,11 @@ struct HexBoard
 
       // For all the nodes on the west side check if there is/are a path(s)
       // to east nodes (i.e. nodes on the last column)
-      const unsigned int west_node_column{1};
-      for (unsigned int west_node_row{1}; west_node_row < board_size + 1; ++west_node_row)
+      const uint west_node_column{1};
+      for (uint west_node_row{1}; west_node_row < board_size + 1;
+           ++west_node_row)
       {
-        unsigned int west_node_id{west_node_row * (board_size + 2) + west_node_column};
+        uint west_node_id{west_node_row * (board_size + 2) + west_node_column};
 
         // If the cell is not blue then pass since there is no way to start
         // a blue path from that node
@@ -561,10 +606,12 @@ struct HexBoard
 
         // For all the nodes on the east side check if there is a path from
         // the current west node to that east node
-        const unsigned int east_node_column{board_size};
-        for (unsigned int east_node_row{1}; east_node_row < board_size + 1; ++east_node_row)
+        const uint east_node_column{board_size};
+        for (uint east_node_row{1}; east_node_row < board_size + 1;
+             ++east_node_row)
         {
-          unsigned int east_node_id{east_node_row * (board_size + 2) + east_node_column};
+          uint east_node_id{east_node_row * (board_size + 2) +
+                            east_node_column};
 
           // If the cell is not blue then pass since there is no way to end
           // a blue path from that node
@@ -591,11 +638,12 @@ struct HexBoard
 
       // For all the nodes on the north side check if there is/are a path(s)
       // to south nodes (i.e. nodes on the bottom row)
-      unsigned int north_node_row{1};
-      for (unsigned int north_node_column{1}; north_node_column < board_size + 1;
+      uint north_node_row{1};
+      for (uint north_node_column{1}; north_node_column < board_size + 1;
            ++north_node_column)
       {
-        unsigned int north_node_id{north_node_row * (board_size + 2) + north_node_column};
+        uint north_node_id{north_node_row * (board_size + 2) +
+                           north_node_column};
 
         // If the cell is not red then pass since there is no way to start
         // a red path from that node
@@ -609,11 +657,12 @@ struct HexBoard
 
         // For all the nodes on the south side check if there is a path from
         // the current north node to that south node
-        const unsigned int south_node_row{board_size};
-        for (unsigned int south_node_column{1}; south_node_column < board_size + 1;
+        const uint south_node_row{board_size};
+        for (uint south_node_column{1}; south_node_column < board_size + 1;
              ++south_node_column)
         {
-          unsigned int south_node_id{south_node_row * (board_size + 2) + south_node_column};
+          uint south_node_id{south_node_row * (board_size + 2) +
+                             south_node_column};
 
           // If the cell is not red then pass since there is no way to end
           // a red path from that node
@@ -666,7 +715,7 @@ struct HexBoard
   }
 
   // Get node's value (i.e. Red, Blue, Available, Outside)
-  NodeValue get_node_value(unsigned int node_id) const
+  NodeValue get_node_value(uint node_id) const
   {
     return static_cast<NodeValue>(nodes[node_id].value);
   }
@@ -683,36 +732,87 @@ struct HexBoard
 
   // Get the onboard row and column for node inside the board.
   // Return false if the node is outside the board else true.
-  bool get_onboard_row_column(unsigned int node_id, unsigned int& row, unsigned int& col)
+  bool get_onboard_row_column(uint node_id, uint& row, uint& col)
   {
-    if (nodes[node_id].value == static_cast<double>(NodeValue::OUTSIDE)) return false;
+    if (nodes[node_id].value == static_cast<double>(NodeValue::OUTSIDE))
+      return false;
     row = node_id / (board_size + 2) - 1;
     col = node_id - (row + 1) * (board_size + 2) - 1;
     return true;
   }
 
-  unsigned int get_board_size() const
+  uint get_board_size() const
   {
     return board_size;
   }
 
+  void set_owner(Hex* hex)
+  {
+    owner_hex = hex;
+  }
+
+  // Getter for board ID
+  uint get_id() const
+  {
+    return board_id;
+  }
+
+  // Save the current state of a player's UnionFind
+  void save_union_find_state(uint player_id)
+  {
+    if (player_id >= max_players) throw std::runtime_error("Invalid player ID");
+
+    // Create a deep copy of the current UnionFind state
+    players_uf_backup[player_id] = players_uf[player_id];
+  }
+
+  // Restore the UnionFind state for a player
+  void restore_union_find_state(uint player_id)
+  {
+    if (player_id >= max_players) throw std::runtime_error("Invalid player ID");
+
+    players_uf[player_id] = players_uf_backup[player_id];
+  }
+
+  // Check if a move would win the game without modifying the board state
+  bool would_win(uint board_row, uint board_column, uint player_id) const
+  {
+    HexBoard test_board(*this);  // Create a copy
+    bool game_end = false;
+
+    if (test_board.select(board_row, board_column, player_id, game_end, false))
+    {
+      return game_end;
+    }
+    return false;
+  }
+
 private:
+  // Unique ID for this board instance
+  const uint board_id;
+
+  // Counter for unique IDs
+  static std::atomic<uint> next_board_id;
+
+  // Back pointer to owning Hex object
+  Hex* owner_hex{nullptr};
+
   // Store the path for a winning game
   Path path;
 
   HexUI* ui{nullptr};
 
   // The board size (number of cell per edge. 11 by default)
-  unsigned int board_size{11};
+  uint board_size{11};
 
   // The total number of cells on the board: board_size*board_size
-  unsigned int board_cells;
+  uint board_cells;
 
   // The graph size
-  unsigned int graph_size;
+  uint graph_size;
 
   // number of selected cells
-  unsigned int nb_selected_cells{0};
+  uint nb_selected_cells{0};
 
   enum class EdgeColor
   {
@@ -729,8 +829,8 @@ private:
   // Store the nodes. I use a trick to make life easier for the addition of the
   // nodes' edges. I add one layer of cells around the board. The nodes
   // representing these cells are marked as OUTSIDE.
-  // For example a 3x3 boards will be represented with surrounded cells like this:
-  // O O O O O
+  // For example a 3x3 boards will be represented with surrounded cells like
+  // this: O O O O O
   //  O I I I O
   //   O I I I O
   //    O I I I O
@@ -740,21 +840,27 @@ private:
 
   // Object for the Union-Find Algo. Each player has its subsets.
   UnionFind players_uf[2];
-  unsigned int first_virtual_node{0};
-  unsigned int second_virtual_node{std::numeric_limits<unsigned int>::infinity()};
+  uint first_virtual_node{0};
+  uint second_virtual_node{std::numeric_limits<uint>::infinity()};
+
+  // Backup storage for UnionFind states
+  UnionFind players_uf_backup[2];
+
+  // Method to get machine type for a player
+  std::string get_player_machine_type(uint player_id) const;
 
   // Initialization of the graph's node
   // All nodes representing cells on the board are marked AVAILABLE.
   // All nodes representing the cells surrounding the board are marked OUTSIDE
   void init_nodes()
   {
-    unsigned int total_size{graph_size + 4 * board_size + 4};
+    uint total_size{graph_size + 4 * board_size + 4};
     nodes.resize(total_size);
-    for (unsigned int row{0}; row < board_size + 2; ++row)
+    for (uint row{0}; row < board_size + 2; ++row)
     {
-      for (unsigned int column{0}; column < board_size + 2; ++column)
+      for (uint column{0}; column < board_size + 2; ++column)
       {
-        unsigned int node_id{row * (board_size + 2) + column};
+        uint node_id{row * (board_size + 2) + column};
         nodes[node_id].id = node_id;
         // Mark the nodes for the cells surrounding the board as outside.
         if ((row == 0) || (column == 0))
@@ -767,16 +873,16 @@ private:
     }
   }
 
-  void get_uf_nodes(std::vector<unsigned int>& uf_nodes)
+  void get_uf_nodes(std::vector<uint>& uf_nodes)
   {
-    unsigned int node_id{first_virtual_node};
+    uint node_id{first_virtual_node};
 
     // First virtual nodes
     uf_nodes.push_back(node_id);
 
-    for (unsigned int node_row = 1; node_row < board_size + 1; ++node_row)
+    for (uint node_row = 1; node_row < board_size + 1; ++node_row)
     {
-      for (unsigned int node_column = 1; node_column < board_size + 1; ++node_column)
+      for (uint node_column = 1; node_column < board_size + 1; ++node_column)
       {
         node_id = node_row * (board_size + 2) + node_column;
         uf_nodes.push_back(node_id);
@@ -788,19 +894,19 @@ private:
   }
 
   // Tell if a node is available
-  bool is_node_available(unsigned int node_id)
+  bool is_node_available(uint node_id)
   {
     return nodes[node_id].value == static_cast<double>(NodeValue::AVAILABLE);
   }
 
   // Tell if a node is on the board or surrounding it
-  bool is_on_board(unsigned int node_id)
+  bool is_on_board(uint node_id)
   {
     return nodes[node_id].value != static_cast<double>(NodeValue::OUTSIDE);
   }
-  bool is_on_board(unsigned int node_row, unsigned int node_column)
+  bool is_on_board(uint node_row, uint node_column)
   {
-    unsigned int node_id{node_row * (board_size + 2) + node_column};
+    uint node_id{node_row * (board_size + 2) + node_column};
     return is_on_board(node_id);
   }
 
@@ -814,14 +920,14 @@ private:
     // A position on the board is represented by a unique pair (row, column)
     // which gives a node id in the graph. row and column for valid nodes (i.e
     // the nodes that are on the board) are in [1, board_size]
-    for (unsigned int row{1}; row < board_size + 1; ++row)
+    for (uint row{1}; row < board_size + 1; ++row)
     {
-      for (unsigned int column{1}; column < board_size + 1; ++column)
+      for (uint column{1}; column < board_size + 1; ++column)
       {
-        unsigned int node_id{row * (board_size + 2) + column};
-        unsigned int neighbor_id;
-        unsigned int neighbor_row;
-        unsigned int neighbor_col;
+        uint node_id{row * (board_size + 2) + column};
+        uint neighbor_id;
+        uint neighbor_row;
+        uint neighbor_col;
         for (int row_offset{0}; row_offset < 2; ++row_offset)
         {
           for (int col_offset{-1}; col_offset < 2; ++col_offset)
@@ -831,7 +937,8 @@ private:
             neighbor_row = row + row_offset;
             neighbor_col = column + col_offset;
             neighbor_id = neighbor_row * (board_size + 2) + neighbor_col;
-            if (neighbor_id == node_id - 1) continue;  // This edge was already added
+            if (neighbor_id == node_id - 1)
+              continue;  // This edge was already added
             if (is_on_board(neighbor_id))
             {
               // The neighbor node is on the board so we can add an edge
@@ -850,9 +957,9 @@ private:
   }
 
   // Helper function to represent the board's cells
-  char get_node_char(unsigned int row, unsigned int column)
+  char get_node_char(uint row, uint column)
   {
-    unsigned int node_id{row * (board_size + 2) + column};
+    uint node_id{row * (board_size + 2) + column};
     NodeValue node_value{static_cast<NodeValue>(nodes[node_id].value)};
     char ret;
     PlayersColors players_colors;
@@ -873,7 +980,7 @@ private:
     return ret;
   }
 
-  void set_node_value(unsigned int node_id, NodeValue value)
+  void set_node_value(uint node_id, NodeValue value)
   {
     nodes[node_id].value = static_cast<double>(value);
   }
@@ -892,7 +999,7 @@ private:
    *  => Edge between node (1, 0) and node (1, 1) and edge between node (1, 1)
    *  and node (0, 2) are given the color Blue.
    */
-  void color_edges(unsigned int node_id, unsigned int player_id)
+  void color_edges(uint node_id, uint player_id)
   {
     if (!is_on_board(node_id))
     {
@@ -901,43 +1008,48 @@ private:
       throw std::runtime_error{err.str()};
     }
 
-    std::vector<std::pair<unsigned int, double>> neighbors;
+    std::vector<std::pair<uint, double>> neighbors;
     graph.get_neighbors(node_id, neighbors);
 
-    unsigned int board_row;
-    unsigned int board_col;
+    uint board_row;
+    uint board_col;
     if (!get_onboard_row_column(node_id, board_row, board_col))
       throw std::runtime_error{"node outside the board"};
 
     if (player_id == blue_player)
     {
       if (board_col == 0)
+      {
         players_uf[player_id].merge(node_id, first_virtual_node);
+      }
       else if (board_col == board_size - 1)
+      {
         players_uf[player_id].merge(node_id, second_virtual_node);
+      }
     }
     else
     {
       if (board_row == 0)
+      {
         players_uf[player_id].merge(node_id, first_virtual_node);
+      }
       else if (board_row == board_size - 1)
+      {
         players_uf[player_id].merge(node_id, second_virtual_node);
+      }
     }
 
     for (auto neighbor : neighbors)
     {
-      unsigned int neighbor_id{neighbor.first};
+      uint neighbor_id{neighbor.first};
 
       if (!is_on_board(neighbor_id))
       {
         std::stringstream err;
-        err << "color_edges(" << node_id << ") neighbor_id: " << neighbor_id << " not on board"
-            << std::endl;
+        err << "color_edges(" << node_id << ") neighbor_id: " << neighbor_id
+            << " not on board" << std::endl;
         throw std::runtime_error{err.str()};
       }
-
-      // if (nodes[neighbor_id].value == static_cast<double>(NodeValue::OUTSIDE))
-      //   throw std::runtime_error{"neighbor outside the board"};
 
       if (nodes[neighbor_id].value == static_cast<double>(player_id))
       {
@@ -950,7 +1062,7 @@ private:
     }
   }
 
-  void uncolor_edges(unsigned int node_id)
+  void uncolor_edges(uint node_id)
   {
     if (!is_on_board(node_id))
     {
@@ -959,17 +1071,17 @@ private:
       throw std::runtime_error{err.str()};
     }
 
-    std::vector<std::pair<unsigned int, double>> neighbors;
+    std::vector<std::pair<uint, double>> neighbors;
 
     graph.get_neighbors(node_id, neighbors);
     for (auto neighbor : neighbors)
     {
-      unsigned int neighbor_id{neighbor.first};
+      uint neighbor_id{neighbor.first};
       if (!is_on_board(neighbor_id))
       {
         std::stringstream err;
-        err << "uncolor_edges(" << node_id << ") neighbor_id: " << neighbor_id << " not on board"
-            << std::endl;
+        err << "uncolor_edges(" << node_id << ") neighbor_id: " << neighbor_id
+            << " not on board" << std::endl;
         throw std::runtime_error{err.str()};
       }
 
@@ -978,5 +1090,8 @@ private:
     }
   }
 };
+
+// Static member definition
+std::atomic<uint> HexBoard::next_board_id{0};
 
 #endif  // HEX_BOARD_H

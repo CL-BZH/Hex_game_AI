@@ -87,7 +87,8 @@ struct ShortestPath<Graph_T<Color_T>>
   virtual void compute_path(Path& path, Color_T* color = nullptr) = 0;
 
   // Compute all the shortest starting at a given node
-  virtual std::vector<Node> compute_parents(Node& start, Color_T* color = nullptr) = 0;
+  virtual std::vector<Node> compute_parents(Node& start,
+                                            Color_T* color = nullptr) = 0;
 
   // Get algorithm name
   const std::string get_name()
@@ -152,14 +153,16 @@ struct ShortestPath<Graph_T<Color_T>>
     while (previous.value != INFINITE_VALUE)
     {
       // std::cout << "Previous (id, value) = ";
-      // std::cout << '(' << previous.id << ", " << previous.value << ')' << std::endl;
+      // std::cout << '(' << previous.id << ", " << previous.value << ')' <<
+      // std::endl;
       path.route.insert(path.route.begin(), previous);
       previous = parent[previous.id];
     }
 
     // Set the path distance (sum of the weights of edges that make the path)
     Node end_parent{parent[end.id]};
-    path.distance = end_parent.value + this->get_graph()->get_edge_value(end.id, end_parent.id);
+    path.distance = end_parent.value +
+                    this->get_graph()->get_edge_value(end.id, end_parent.id);
   }
 
   // Get all shortest paths starting at a given node with
@@ -231,12 +234,14 @@ struct DijkstraShortestPath<Graph_T<Color_T>> : ShortestPath<Graph_T<Color_T>>
   virtual std::unique_ptr<ShortestPath<Graph_T<Color_T>>> clone(
       const Graph_T<Color_T>& graph) const override
   {
-    std::unique_ptr<DijkstraShortestPath<Graph_T<Color_T>>> p{new DijkstraShortestPath(graph)};
+    std::unique_ptr<DijkstraShortestPath<Graph_T<Color_T>>> p{
+        new DijkstraShortestPath(graph)};
     return std::move(p);
   }
 
 private:
-  std::vector<Node> compute_parents(Node& start, Color_T* color = nullptr) override
+  std::vector<Node> compute_parents(Node& start,
+                                    Color_T* color = nullptr) override
   {
     const Graph_T<Color_T>* graph{this->get_graph()};
     unsigned int graph_size{graph->V()};
@@ -327,14 +332,16 @@ private:
     while (previous.value != INFINITE_VALUE)
     {
       // std::cout << "Previous (id, value) = ";
-      // std::cout << '(' << previous.id << ", " << previous.value << ')' << std::endl;
+      // std::cout << '(' << previous.id << ", " << previous.value << ')' <<
+      // std::endl;
       path.route.insert(path.route.begin(), previous);
       previous = parent[previous.id];
     }
 
     // Set the path distance (sum of the weights of edges that make the path)
     Node end_parent{parent[end.id]};
-    path.distance = end_parent.value + this->get_graph()->get_edge_value(end.id, end_parent.id);
+    path.distance = end_parent.value +
+                    this->get_graph()->get_edge_value(end.id, end_parent.id);
 
     // std::cout << "Path length: " << path.distance << std::endl;
 

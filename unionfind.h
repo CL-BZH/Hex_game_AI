@@ -37,19 +37,32 @@ struct UnionFind
   {
   }
 
+  // Copy assignment operator
+  UnionFind& operator=(const UnionFind& other)
+  {
+    if (this != &other)
+    {
+      subsets = other.subsets;
+      node_to_index = other.node_to_index;
+      index_to_node = other.index_to_node;
+    }
+    return *this;
+  }
+
   friend std::ostream& operator<<(std::ostream& os, const UnionFind& uf)
   {
     for (unsigned int i = 0; i < uf.subsets.size(); ++i)
     {
-      os << uf.index_to_node.at(i) << "->" << uf.index_to_node.at(uf.subsets[i].parent_idx) << ",";
+      os << uf.index_to_node.at(i) << "->"
+         << uf.index_to_node.at(uf.subsets[i].parent_idx) << ",";
     }
     return os;
   }
 
   /*
-   * Get the root of the tree (i.e. the representative) to which belongs the node.
-   * A standalone node is the root of its own tree.
-   * Path compression is done at the same time.
+   * Get the root of the tree (i.e. the representative) to which belongs the
+   * node. A standalone node is the root of its own tree. Path compression is
+   * done at the same time.
    */
   unsigned int find(unsigned int node_id)
   {
@@ -153,7 +166,8 @@ struct UnionFind
       os << "\n";
     }
 
-    // If there are no edges (all nodes are roots), show them as separate components
+    // If there are no edges (all nodes are roots), show them as separate
+    // components
     if (roots.size() == subsets.size())
     {
       os << "All nodes are separate:\n";

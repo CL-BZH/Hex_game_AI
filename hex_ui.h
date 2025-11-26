@@ -69,7 +69,8 @@ inline void DOT(int x, int y, WINDOW* w)
   wattroff(w, COLOR_PAIR(WHITE_PAIR));
 }
 
-inline void DASH(int x, int y, WINDOW* w, short int pair = WHITE_PAIR, unsigned int type = A_NORMAL)
+inline void DASH(int x, int y, WINDOW* w, short int pair = WHITE_PAIR,
+                 unsigned int type = A_NORMAL)
 {
   wattron(w, COLOR_PAIR(pair) | type);
   mvwaddch(w, y, x, DASH_CHAR);
@@ -146,7 +147,8 @@ enum class GraphEdgeType
 
 struct GraphEdge
 {
-  GraphEdge(const Point& p1, const Point& p2, GraphEdgeType et = GraphEdgeType::Unknown)
+  GraphEdge(const Point& p1, const Point& p2,
+            GraphEdgeType et = GraphEdgeType::Unknown)
       : p1{p1}, p2{p2}, type{et}
   {
   }
@@ -164,7 +166,9 @@ struct GraphEdge
     else
       throw std::runtime_error{"Unknown graph edge type"};
 
-    sstr << "\n" << static_cast<std::string>(p1) << " " << e << static_cast<std::string>(p2);
+    sstr << "\n"
+         << static_cast<std::string>(p1) << " " << e
+         << static_cast<std::string>(p2);
     return sstr.str();
   }
 
@@ -331,7 +335,8 @@ private:
     Point current_point;
     Point point;
 
-    for (auto current_pt{std::begin(points)}; current_pt != std::end(points); ++current_pt)
+    for (auto current_pt{std::begin(points)}; current_pt != std::end(points);
+         ++current_pt)
     {
       for (auto pt{std::begin(points)}; pt != std::end(points); ++pt)
       {
@@ -503,7 +508,8 @@ private:
 
     wrefresh(board);
 
-    // If there is a winning path (letters 'b' or 'r' then show the edges colored)
+    // If there is a winning path (letters 'b' or 'r' then show the edges
+    // colored)
     if (winner_color) show_winning_path(winner_color);
   }
 

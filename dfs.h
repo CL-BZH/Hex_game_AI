@@ -11,7 +11,8 @@ struct DFS
   {
   }
 
-  std::map<unsigned int, bool>& get_map(unsigned int node_id, std::map<unsigned int, bool>& visited)
+  std::map<unsigned int, bool>& get_map(unsigned int node_id,
+                                        std::map<unsigned int, bool>& visited)
   {
     // Init the map
     visited.clear();

@@ -109,18 +109,43 @@ Blue MCTS: Selected move (2,5) - Win rate: 59% (77 visits)
 The program supports several command-line options for automated testing and benchmarking:
 
 ```bash
-./hex -s 11 -p 1 -t 4      # Human vs AI on 11x11 board, 4 threads
-./hex -p 0 -g 10 -q        # 10 AI vs AI games, quiet mode (statistics only)
-./hex --size 9 --players 2 # Human vs Human on 9x9 board
-./hex -s 7 -g 100 -q       # Benchmark: 100 AI vs AI games on 7x7 board
+# Human vs Dummy AI
+./hex_game -m DUMMY
+
+# Dummy vs Brute Force
+./hex_game -m "(DUMMY, BRUTE_FORCE)"
+
+# Brute Force vs Monte Carlo
+./hex_game -m "(BRUTE_FORCE, MC)"
+
+# Monte-Carlo vs Monte-Carlo Tree Search
+# with selection strategy for MCTS set to WIN_RATE
+./hex_game -m "(MC, MCTS{strategy:WIN_RATE})"
+
+# 5 games with different AIs: (MC and MCTS)
+# with 4 threads for MC and 7 threads for MCTS
+./hex_game -g 5 -t 4 -m "(MCTS{threads:7}, MONTE_CARLO)"
+
+# Human vs Monte-Carlo AI on 11x11 board, 4 threads
+./hex -s 11 -m \"MC{threads:4}
+
+# Benchmark: 100 AI vs AI games on 7x7 board
+./hex -s 7 -g 100 -q -m "(MCTS, MONTE_CARLO)"      
 ```
 
 Available options:
 - `-s, --size SIZE` - Board size (default: 7)
-- `-p, --players PLAYERS` - Number of human players: 0, 1, or 2 (default: 0)
-- `-t, --threads THREADS` - Number of threads for AI (default: hardware_concurrency)
+- `-t, --threads THREADS` - Default threads for AI (default: hardware_concurrency)
 - `-g, --games GAMES` - Number of games to play (default: 1)
 - `-q, --quiet` - Quiet mode - disable most output (statistics only)
+- `-m, --machines CONFIG` - Machine configuration (default: HUMAN,HUMAN)
+   Examples:
+   - MC                    (Human vs Monte Carlo AI)
+   - MCTS                  (Human vs MCTS AI)
+   - DUMMY                 (Human vs Dummy AI)
+   - BRUTE_FORCE           (Human vs Brute Force AI)
+   - (MC, MCTS)            (MC AI vs MCTS AI)
+   - (MCTS{strategy:WIN_RATE}, MC{threads:4})
 - `-h, --help` - Show help message
 
 In quiet mode, the program collects detailed statistics about engine performance including win rates, move times, and efficiency metrics, which are exported to CSV for analysis.
@@ -206,6 +231,24 @@ Key features:
 - **Atomic operations**: Thread-safe node updates using `std::atomic` and custom `AtomicDouble`
 - **Dynamic iterations**: Number of iterations adapts based on game phase
 - **Standard rewards**: Uses binary win/loss outcomes
+- **UCB1 exploration constant adapted to the board size**:
+
+   The UCB1 formula is $ucb = \frac{w}{n} + c \times \sqrt{\ln\frac{N}{n}}$.
+
+   Therefore:
+   - Larger boards → more moves → larger N → exploration term grows naturally
+   - Smaller boards → fewer moves → smaller N → need higher c to encourage exploration
+
+   Why c depends on board size:
+
+      Branching factor: Larger boards have more possible moves
+      Game complexity: More positions to explore
+      Depth of game: Longer games require different exploration/exploitation balance
+   
+   The value of c is computed in the MCTS engine by the method get_exploration_constant.
+
+   For example, for a board of size 5, 7, 9 or 11
+   the function returns 2.64, 2.28, 1.92 and 1.56 respectively.
 
 Based on current testing results, the flat Monte Carlo engine demonstrates stronger performance with higher win rates compared to the MCTS implementation, despite MCTS's more sophisticated tree search methodology.
 

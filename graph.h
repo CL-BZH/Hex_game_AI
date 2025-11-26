@@ -10,8 +10,9 @@
  * It is the ratio of existing edges versus the maximum number of edges
  * that the graph could have if it would be fully connected.
  * Hence it gives the probability of having an edge between 2 nodes.
- * To build a graph with a density 'd', then n = int(d x maximum_number_of_edges)
- * edges are randomly selected among all possible edges.
+ * To build a graph with a density 'd', then n = int(d x
+ * maximum_number_of_edges) edges are randomly selected among all possible
+ * edges.
  */
 
 #include <array>
@@ -122,8 +123,8 @@ std::ostream& operator<<(std::ostream& out, const Edge& edge)
  * Undirected weighted graph class
  * We consider undirected graph where nodes have no edge to themself.
  * Nota bene:
- * The graph object does not store any node. It stores only the topology of the graph
- * (i.e. weight of edges between nodes - with infinite meaning no edge)
+ * The graph object does not store any node. It stores only the topology of the
+ * graph (i.e. weight of edges between nodes - with infinite meaning no edge)
  *
  */
 template <typename = void>
@@ -171,7 +172,8 @@ struct Graph_T
     while (ifs >> node_1 >> node_2 >> weight)
     {
       Node nodes[2]{{node_1}, {node_2}};
-      // std::cout << nodes[0].id << " " << nodes[1].id << " " << weight << std::endl;
+      // std::cout << nodes[0].id << " " << nodes[1].id << " " << weight <<
+      // std::endl;
       add_edge(nodes[0], nodes[1], weight);
     }
     ifs.close();
@@ -188,7 +190,8 @@ struct Graph_T
         max_edges{(size * (size - 1)) / 2},
         weights(max_edges, INFINITE_VALUE)
   {
-    if (size < 2) throw std::runtime_error{"The graph size has to be at least 2"};
+    if (size < 2)
+      throw std::runtime_error{"The graph size has to be at least 2"};
     // std::cout << "Build a graph of size " << vertices
     //	<< ". Maximum number of edges: " << max_edges << '\n';
   }
@@ -238,7 +241,8 @@ struct Graph_T
   // Add an edge of cost 'weight' between nodes n1 and n2
   void add_edge(const Node& n1, const Node& n2, double weight = 0.0)
   {
-    if (n1.id == n2.id) throw std::runtime_error{"There is no edge from one node to itself"};
+    if (n1.id == n2.id)
+      throw std::runtime_error{"There is no edge from one node to itself"};
 
     // Get the edge index
     unsigned int index{get_index(n1, n2)};
@@ -281,11 +285,13 @@ struct Graph_T
   }
 
   // Tests whether there is an edge between node n1 and node n2
-  bool adjacent(const Node& n1, const Node& n2, double* distance = nullptr) const
+  bool adjacent(const Node& n1, const Node& n2,
+                double* distance = nullptr) const
   {
     return adjacent(n1.id, n2.id, distance);
   }
-  bool adjacent(unsigned int n1_id, unsigned int n2_id, double* distance = nullptr) const
+  bool adjacent(unsigned int n1_id, unsigned int n2_id,
+                double* distance = nullptr) const
   {
     if (n1_id == n2_id)
     {
@@ -304,7 +310,8 @@ struct Graph_T
 
   // List all nodes n_i id such that there is an edge from node n_1 to n_i
   // and give their distances
-  virtual void get_neighbors(const Node& n1, std::vector<std::pair<Node, double>>& neighbors,
+  virtual void get_neighbors(const Node& n1,
+                             std::vector<std::pair<Node, double>>& neighbors,
                              void* vptr = nullptr) const
   {
     // Neighbor node
@@ -324,12 +331,15 @@ struct Graph_T
     }
   }
 
-  void get_neighbors(const Node& n1, std::vector<std::pair<unsigned int, double>>& neighbors) const
+  void get_neighbors(
+      const Node& n1,
+      std::vector<std::pair<unsigned int, double>>& neighbors) const
   {
     get_neighbors(n1.id, neighbors);
   }
-  void get_neighbors(unsigned int n1_id,
-                     std::vector<std::pair<unsigned int, double>>& neighbors) const
+  void get_neighbors(
+      unsigned int n1_id,
+      std::vector<std::pair<unsigned int, double>>& neighbors) const
   {
     double distance;
 
@@ -347,11 +357,13 @@ struct Graph_T
 
   // Find a node closest neighbor and returns its id.
   // (returns DEAD_NODE if there is no neighbor)
-  unsigned int get_closest_neighbor(const Node& node, double* distance = nullptr) const
+  unsigned int get_closest_neighbor(const Node& node,
+                                    double* distance = nullptr) const
   {
     return get_closest_neighbor(node.id);
   }
-  unsigned int get_closest_neighbor(unsigned int n1_id, double* distance = nullptr) const
+  unsigned int get_closest_neighbor(unsigned int n1_id,
+                                    double* distance = nullptr) const
   {
     // Id of the closest neighbor
     unsigned int closest{DEAD_NODE};
@@ -389,12 +401,15 @@ struct Graph_T
   void show() const
   {
 #ifdef _PRINT_MATRIX
-    // In the matrix a 0 means no edge and a non-zero value is the weight of the edge
+    // In the matrix a 0 means no edge and a non-zero value is the weight of the
+    // edge
     MatrixXd connections = MatrixXd::Ones(vertices, vertices) * INFINITE_VALUE;
     for (auto& edge : edges_listing)
     {
-      connections(edge.nodes[0].id, edge.nodes[1].id) = static_cast<double>(edge.weight);
-      connections(edge.nodes[1].id, edge.nodes[0].id) = static_cast<double>(edge.weight);
+      connections(edge.nodes[0].id, edge.nodes[1].id) =
+          static_cast<double>(edge.weight);
+      connections(edge.nodes[1].id, edge.nodes[0].id) =
+          static_cast<double>(edge.weight);
     }
     std::cout << connections << std::endl;
 #else
@@ -435,7 +450,8 @@ struct Graph_T
   // is given by weights[index].
   unsigned int get_index(unsigned int n1_id, unsigned int n2_id) const
   {
-    if (n1_id == n2_id) throw std::runtime_error{"There is no edge from one node to itself"};
+    if (n1_id == n2_id)
+      throw std::runtime_error{"There is no edge from one node to itself"};
     // Since we store only the lower triangular part of the connectivity
     // matrix we may need to exchange the row and column index.
     unsigned int i = n1_id;
@@ -468,16 +484,15 @@ private:
   // Number of node in the graph
   /*const*/ unsigned int vertices;
 
-  // Connection matrix represented as an array (since it is an undirectionnal graph
-  // with no node connected to itself, the array takes less than half the size
-  // of the matrix).
-  // For exemple suppose we have the connection matrix
+  // Connection matrix represented as an array (since it is an undirectionnal
+  // graph with no node connected to itself, the array takes less than half the
+  // size of the matrix). For exemple suppose we have the connection matrix
   // [[a, b, c, d], [e, f, g, h], [i, j, k, l], [m, n, o, p]]
-  // where a, b, ..., p are edges' weights (e.g. if there is no connection between
-  // node 1 and 0 then 'e' is equal to INFINITE_VALUE)
-  // then the matrix is 'flatten' to [e, i, j, m, n, o].
-  // And for example, edge between node 2 and 1 (row r=2 column c=1 in the matrix,
-  // that is 'j') is found in the array at index ((r - 1)r)/2 + c
+  // where a, b, ..., p are edges' weights (e.g. if there is no connection
+  // between node 1 and 0 then 'e' is equal to INFINITE_VALUE) then the matrix
+  // is 'flatten' to [e, i, j, m, n, o]. And for example, edge between node 2
+  // and 1 (row r=2 column c=1 in the matrix, that is 'j') is found in the array
+  // at index ((r - 1)r)/2 + c
   std::vector<double> weights;
 
   // Average distance between nodes. Where the distance between 2 nodes is the
@@ -554,9 +569,11 @@ struct ColoredGraph : Graph
   // Set the color of an edge between two nodes
   void set_edge_color(const Node& n1, const Node& n2, Color_t color)
   {
-    if (n1.id == n2.id) throw std::runtime_error{"There is no edge from one node to itself"};
+    if (n1.id == n2.id)
+      throw std::runtime_error{"There is no edge from one node to itself"};
 
-    // If there exist an edge between the 2 nodes then it is possible to color it
+    // If there exist an edge between the 2 nodes then it is possible to color
+    // it
     if (Graph::adjacent(n1, n2))
     {
       // Get the edge index
@@ -578,7 +595,8 @@ struct ColoredGraph : Graph
   }
 
   // Get all neighbors with an edge of a given color
-  void get_neighbors(const Node& n1, std::vector<std::pair<Node, double>>& neighbors,
+  void get_neighbors(const Node& n1,
+                     std::vector<std::pair<Node, double>>& neighbors,
                      void* vptr = nullptr) const override
   {
     // Neighbor node
@@ -612,7 +630,8 @@ struct ColoredGraph : Graph
     }
   }
 
-  void get_neighbors(unsigned int n1_id, std::vector<std::pair<unsigned int, double>>& neighbors,
+  void get_neighbors(unsigned int n1_id,
+                     std::vector<std::pair<unsigned int, double>>& neighbors,
                      Color_t* color = nullptr) const
   {
     double distance;
@@ -682,7 +701,8 @@ template <typename = void>
 struct RandomGraph_T : Graph
 {
   RandomGraph_T(unsigned int size = graph_default_size,
-                double density = random_graph_default_density, const std::string& name = "NO_NAME",
+                double density = random_graph_default_density,
+                const std::string& name = "NO_NAME",
                 std::array<double, 2> range = random_graph_default_range)
       : Graph(size, name), density{density}, range{range}
   {
@@ -718,9 +738,11 @@ private:
     // Indexes of all possible undirected edges
     std::vector<unsigned int> available_edges_indexes(max_edges);
     // fill with [0 .. max_edges)
-    std::iota(available_edges_indexes.begin(), available_edges_indexes.end(), 0);
+    std::iota(available_edges_indexes.begin(), available_edges_indexes.end(),
+              0);
     // Total number of edges we want given the size and density
-    int edges_count = static_cast<int>(density * static_cast<double>(max_edges));
+    int edges_count =
+        static_cast<int>(density * static_cast<double>(max_edges));
 
     // Edges selection
     std::random_device rd;   // obtain a random number from hardware
@@ -743,9 +765,11 @@ private:
    * from the vector (i.e. the set of available edges is updated by removing
    * the selected edge).
    */
-  unsigned int random_edge(std::vector<unsigned int>& available_edges_indexes, std::mt19937& gen)
+  unsigned int random_edge(std::vector<unsigned int>& available_edges_indexes,
+                           std::mt19937& gen)
   {
-    std::uniform_int_distribution<> distr(0, available_edges_indexes.size() - 1);
+    std::uniform_int_distribution<> distr(0,
+                                          available_edges_indexes.size() - 1);
     int idx{distr(gen)};
     unsigned int index = available_edges_indexes[idx];
     // Remove the edge from the available ones

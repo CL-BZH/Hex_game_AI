@@ -27,16 +27,17 @@ struct Hex
   // Then one_machine_engine_ptr will be the engine for the 'Blue'
   // and other_machine_engine_ptr will be the machine for the 'Red'.
 
-  Hex(HexBoard* board_ptr = nullptr, unsigned int nb_players = max_players,
+  Hex(HexBoard* board_ptr = nullptr, uint nb_players = max_players,
       HexMachineEngine* one_machine_engine_ptr = nullptr,
-      HexMachineEngine* other_machine_engine_ptr = nullptr, bool quiet_mode = false,
-      HexStatistics* stats_ptr = nullptr)
+      HexMachineEngine* other_machine_engine_ptr = nullptr,
+      bool quiet_mode = false, HexStatistics* stats_ptr = nullptr)
       : board_ptr{board_ptr},
         nb_human_players{nb_players},
         nb_machine_players{max_players - nb_human_players},
         stats{stats_ptr}
   {
-    if (board_ptr == nullptr) throw std::runtime_error{"You must provide a board"};
+    if (board_ptr == nullptr)
+      throw std::runtime_error{"You must provide a board"};
 
     if (!((nb_players == 0) || (nb_players == 1) || (nb_players == 2)))
       throw std::runtime_error{"The number of players can only be 0, 1 or 2"};
@@ -48,8 +49,8 @@ struct Hex
         throw std::runtime_error{
             "You must provide an engine for"
             "the machine to play"};
-      if ((nb_machine_players == 2) &&
-          ((one_machine_engine_ptr == nullptr) || (other_machine_engine_ptr == nullptr)))
+      if ((nb_machine_players == 2) && ((one_machine_engine_ptr == nullptr) ||
+                                        (other_machine_engine_ptr == nullptr)))
         throw std::runtime_error{
             "You must provide two engines for "
             "the machine to play against itself"};
@@ -68,14 +69,32 @@ struct Hex
         machine_players.push_back({blue_player, one_machine_engine_ptr});
         machine_players.push_back({red_player, other_machine_engine_ptr});
       }
+
+      // Set the back pointer
+      board_ptr->set_owner(this);
     }
 
     if (!quiet_mode)
       // Give access to the UI
       board_ptr->set_ui(hex_ui);
-
+#ifdef _DEBUG
+    else
+      board_ptr->set_ui(hex_ui);
+#endif
     // Start the game
     start(quiet_mode);
+  }
+
+  std::string get_player_machine_type(uint player_id) const
+  {
+    for (const auto& machine : machine_players)
+    {
+      if (machine.color == player_id)
+      {
+        return machine.engine->get_name();
+      }
+    }
+    return "Unknown";  // Human player
   }
 
 private:
@@ -90,35 +109,36 @@ private:
   // 0: the machine plays against itself
   // 1: the machine is the other player
   // 2: 2 players play against each other
-  unsigned int nb_human_players;
+  uint nb_human_players;
 
   // The number of machine players (2 - nb_human_players)
-  unsigned int nb_machine_players;
+  uint nb_machine_players;
 
   // Store the id and type of the machine engine (if any)
   struct Machine
   {
-    unsigned int color;
+    uint color;
     HexMachineEngine* engine;
   };
   std::vector<Machine> machine_players;
 
   friend HexMachineEngine;
 
-  std::string get_player_name(unsigned int player_color) const
+  std::string get_player_name(uint player_color) const
   {
     for (const auto& machine : machine_players)
     {
       if (machine.color == player_color)
       {
-        return machine.engine->get_name() + "_" + (player_color == blue_player ? "Blue" : "Red");
+        return machine.engine->get_name() + "_" +
+               (player_color == blue_player ? "Blue" : "Red");
       }
     }
     return "Human_" + std::string(player_color == blue_player ? "Blue" : "Red");
   }
 
   // Invite the human player to enter the position he wants on the board
-  void prompt_player(unsigned int human_player_id, bool& game_end)
+  void prompt_player(uint human_player_id, bool& game_end)
   {
     /*unsigned*/ int row, col;
     std::stringstream ss;
@@ -133,7 +153,8 @@ private:
     while (!position_is_selected)
     {
       ss.clear();
-      ss << PlayersColors::color(human_player_id) << " player selects a position ";
+      ss << PlayersColors::color(human_player_id)
+         << " player selects a position ";
 
       if (give_example)
       {
@@ -148,18 +169,19 @@ private:
 
       std::stringstream err;
       // Loop until valid row and column are entered
-      position_is_selected = board_ptr->select(row, col, human_player_id, game_end, true, &err);
+      position_is_selected =
+          board_ptr->select(row, col, human_player_id, game_end, true, &err);
 
       if (!position_is_selected) hex_ui << err.str();
     }
   }
 
   // The machine plays against itself or again a human player
-  void machine_play(unsigned int machine_color, bool& game_end)
+  void machine_play(uint machine_color, bool& game_end)
   {
     HexMachineEngine* engine;
 
-    unsigned int row{0}, col{0};
+    uint row{0}, col{0};
 
     if ((nb_machine_players == 0) || (nb_machine_players > max_players))
       throw std::runtime_error{
@@ -180,7 +202,8 @@ private:
     {
       engine->get_position(*board_ptr, row, col, machine_color);
 
-      position_is_selected = board_ptr->select(row, col, machine_color, game_end, true);
+      position_is_selected =
+          board_ptr->select(row, col, machine_color, game_end, true);
     }
   }
 
@@ -188,8 +211,8 @@ private:
   // The other player (either human or machine) will be given the other color.
   void color_selection()
   {
-    unsigned int player;
-    unsigned int opponent;
+    uint player;
+    uint opponent;
     std::stringstream ss;
 
     // Invite one of the player to select its color
@@ -205,7 +228,8 @@ private:
     {
       std::cin >> player;
       if ((player == blue_player) || (player == red_player)) break;
-      std::cout << "Please enter " << blue_player << " or " << red_player << std::endl;
+      std::cout << "Please enter " << blue_player << " or " << red_player
+                << std::endl;
     }
 
     if (player == blue_player)
@@ -236,8 +260,8 @@ private:
   // Start the game
   void start(bool quiet_mode)
   {
-    // If there is 1 human player against the machine, ask him/her to select its color
-    // (the opponent, i.e. the machine will be given the other color).
+    // If there is 1 human player against the machine, ask him/her to select its
+    // color (the opponent, i.e. the machine will be given the other color).
     if (nb_human_players == 1) color_selection();
 
     if (!quiet_mode)
@@ -254,7 +278,7 @@ private:
     }
 
     // The Blue player always starts
-    unsigned int player{blue_player};
+    uint player{blue_player};
 
     bool game_end{false};
 
@@ -300,7 +324,7 @@ private:
           std::cout << "Path:" << std::endl;
           for (auto node : board_ptr->get_path()->route)
           {
-            unsigned int row, col;
+            uint row, col;
             if (board_ptr->get_onboard_row_column(node.id, row, col))
               std::cout << " (" << row << ", " << col << ") ->";
             else
@@ -329,9 +353,16 @@ private:
       // Now it is the turn of the other player to play
       player = (player == blue_player) ? red_player : blue_player;
 
-      if (board_ptr->board_is_full()) throw std::runtime_error("Board is full!!!");
+      if (board_ptr->board_is_full())
+        throw std::runtime_error("Board is full!!!");
     }
   }
 };
+
+inline std::string HexBoard::get_player_machine_type(uint player_id) const
+{
+  if (!owner_hex) return "Unknown";
+  return owner_hex->get_player_machine_type(player_id);
+}
 
 #endif  // HEX_H
