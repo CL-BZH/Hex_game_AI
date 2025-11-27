@@ -1,5 +1,0 @@
-EngineType,StartingPosition,Wins,Losses,WinRate,LossRate,TotalMoves,AvgMoveTimeMicroseconds
-MCTS,Blue,0,2,0.00,100.00,10,4578804
-MCTS,Red,1,3,25.00,75.00,17,4719262
-MonteCarlo,Blue,3,1,75.00,25.00,18,824459
-MonteCarlo,Red,2,0,100.00,0.00,8,850061
