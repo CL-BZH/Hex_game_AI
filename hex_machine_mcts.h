@@ -206,6 +206,7 @@ struct MCTSNode
   }
 
   // Merge statistics from another node (for root parallelization)
+  // Another option would be majority voting
   void merge_from(const MCTSNode* other)
   {
     if (other->board_row != board_row || other->board_column != board_column)
@@ -356,7 +357,7 @@ private:
   // Iterations based on board size and iteration_factor
   uint base_iterations;
 
-  static constexpr uint iterations_factor = 200;
+  static constexpr uint iterations_factor = 100;
 
   // Selection strategy for final move choice
   SelectionStrategy selection_strategy;
@@ -377,10 +378,7 @@ private:
 
   double get_exploration_constant(uint board_size)
   {
-    // For example, for board_size equal 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-    // this function returns 2.64 2.46 2.28 2.1  1.92 1.74 1.56 1.38 1.2  1.02
-    // 0.84 respectively
-    double c = 3.0 - (board_size - 3) * 0.18;
+    double c = 7.0 - (board_size - 3) * 0.2;
     if (!quiet_mode)
     {
       std::cout << "Exploration constante for UCB1: " << c << std::endl;
