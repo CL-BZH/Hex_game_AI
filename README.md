@@ -270,7 +270,7 @@ In quiet mode (`-q` flag), statistics are exported to CSV format for further ana
 ----
 ## To Do
 - Build a Reinforcement Learning solution...
-- Optimize MCTS with neural network guidance
+- AlphaZero: policy/value network guiding MCTS (PUCT), trained by self-play
 - Add opening book support
 - Implement transposition tables for graph isomorphism
 ```
